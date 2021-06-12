@@ -1,0 +1,6 @@
+{
+  "version": "0.1",
+  "language": "en",
+  "words": ["tryable", "klass"],
+  "ignoreRegExpList": ["/from '[@a-zA-Z]'/", "/YY[YMD hms]+/"]
+}
