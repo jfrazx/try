@@ -1,4 +1,4 @@
-import { TryProperties } from '../../../../interfaces';
+import { TryProperties } from '../../../interfaces';
 import { TryHandlerRuleRunner } from './rules';
 import { TryMap } from '../map';
 

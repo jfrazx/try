@@ -1,3 +1,4 @@
+import { TryCatch, Try } from '../src';
 import { Gambler } from './lib';
 import { expect } from 'chai';
 
@@ -9,6 +10,21 @@ describe('Try', () => {
   });
 
   describe('Standard', () => {
+    it('should throw an error when attempting to catch a property', () => {
+      @TryCatch<Testable>()
+      class Testable {
+        // @ts-ignore
+        @Try<Testable>()
+        failure = 'this will throw an error';
+      }
+
+      expect(() => {
+        new Testable();
+      }).to.throw(
+        `[TryError]: Only methods and accessors can be captured. Property 'failure' not supported`,
+      );
+    });
+
     it('should throw an error when called normally', () => {
       expect(() => gambler.fail()).to.throw(`This should fail`);
     });
@@ -40,6 +56,12 @@ describe('Try', () => {
 
     it('should catch property errors', () => {
       expect(gambler.try.test).to.be.null;
+    });
+
+    it('should throw an error when accessing a non-existent try property', () => {
+      expect(() => (gambler.try as any).doesNotExist()).to.throw(
+        `[TryError]: Property 'doesNotExist' does not exist in TryMap`,
+      );
     });
   });
 });

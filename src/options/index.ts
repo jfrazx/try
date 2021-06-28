@@ -14,7 +14,7 @@ const defaultTryOptions: Required<RegistrationOptions> = {
 export interface OptionsContainer extends Required<RegistrationOptions> {}
 
 export class OptionsContainer {
-  constructor(readonly combinedOptions: TryAllOptions = {}) {
+  constructor(readonly combinedOptions: TryAllOptions) {
     const options = this.mergeOptions(combinedOptions);
 
     Object.entries(options).forEach(([key, value]) => {
@@ -26,7 +26,7 @@ export class OptionsContainer {
   }
 
   private mergeOptions({
-    tryOptions = {},
+    tryOptions,
     global = {},
   }: TryAllOptions): Required<RegistrationOptions> {
     return { ...defaultTryOptions, ...global, ...tryOptions };

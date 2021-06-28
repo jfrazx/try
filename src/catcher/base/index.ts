@@ -1,19 +1,5 @@
+import { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
 import { OptionsContainer } from '../../options';
-
-export type TryCatchBinding<T extends object, K extends keyof T> = (
-  ...args: any[]
-) => T[K];
-
-export type TryCatchPrepare<T extends object, K extends keyof T> =
-  | TryCatchBinding<T, K>
-  | T[K];
-
-export interface CatchError<T extends object, K extends keyof T> {
-  alwaysCatch: boolean;
-  catchError(...args: any[]): T[K];
-  modifyDescriptor(): TypedPropertyDescriptor<T[K]>;
-  prepareRun(property?: K | string): TryCatchPrepare<T, K>;
-}
 
 export abstract class ErrorCatcher<T extends object, K extends keyof T>
   implements CatchError<T, K>
@@ -53,9 +39,7 @@ export abstract class ErrorCatcher<T extends object, K extends keyof T>
   }
 
   protected binding(): TryCatchBinding<T, K> {
-    return (
-      this.options.alwaysCatch ? this.catchError.bind(this) : this.original
-    ) as any;
+    return (this.alwaysCatch ? this.catchError.bind(this) : this.original) as any;
   }
 
   abstract prepareRun(): TryCatchPrepare<T, K>;

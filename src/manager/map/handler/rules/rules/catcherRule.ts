@@ -8,7 +8,8 @@ export class CatcherRule<
   shouldHandle(): boolean {
     return true;
   }
+
   handle() {
-    return this.target.getCatcher(this.property).prepareRun(this.property);
+    return this.target.getTryCatcher(this.property).prepareRun(this.property);
   }
 }

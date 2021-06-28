@@ -1,4 +1,4 @@
-import { isSymbol } from '../../../../../../helpers';
+import { isSymbol } from '../../../../../helpers';
 import { ShouldHandleTryMapRule } from '../base';
 import { TryMap } from '../../../map';
 
@@ -9,6 +9,7 @@ export class InheritedRule<
   shouldHandle(): boolean {
     return isSymbol(this.property);
   }
+
   handle(): T[K] {
     return Reflect.get(this.target, this.property);
   }

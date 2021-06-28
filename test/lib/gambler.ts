@@ -1,8 +1,10 @@
-import { TryCatch, Try, TryProperties } from '../../src';
+import { TryCatch, Try, TryCatchExtension } from '../../src';
 
-export interface Gambler {
-  try: TryProperties<Gambler, keyof Gambler>;
-}
+export interface Gambler
+  extends TryCatchExtension<
+    Gambler,
+    'fail' | 'failOptions' | 'asyncFail' | 'asyncFailOptions' | 'test'
+  > {}
 
 @TryCatch<Gambler>()
 export class Gambler {

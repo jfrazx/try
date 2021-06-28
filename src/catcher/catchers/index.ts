@@ -1,3 +1,3 @@
-export * from './function';
-export * from './property';
+export * from './accessor';
 export * from './thrower';
+export * from './method';

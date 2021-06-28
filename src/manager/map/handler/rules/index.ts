@@ -1,4 +1,4 @@
-import { ShouldHandle } from '../../../../../interfaces';
+import { ShouldHandle } from '../../../../interfaces';
 import { rules } from './rules';
 
 export abstract class TryHandlerRuleRunner {

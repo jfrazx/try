@@ -1,9 +1,10 @@
-import { ErrorCatcher, TryCatchPrepare } from '../base';
+import { TryCatchPrepare } from '../interfaces';
+import { ErrorCatcher } from '../base';
 
-export class FunctionCatcher<
-  T extends object,
-  K extends keyof T,
-> extends ErrorCatcher<T, K> {
+export class MethodCatcher<T extends object, K extends keyof T> extends ErrorCatcher<
+  T,
+  K
+> {
   protected readonly original = this.descriptor.value as unknown as Function;
 
   modifyDescriptor(): TypedPropertyDescriptor<T[K]> {

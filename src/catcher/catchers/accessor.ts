@@ -1,6 +1,7 @@
-import { ErrorCatcher, TryCatchPrepare } from '../base';
+import { TryCatchPrepare } from '../interfaces';
+import { ErrorCatcher } from '../base';
 
-export class PropertyCatcher<
+export class AccessorCatcher<
   T extends object,
   K extends keyof T,
 > extends ErrorCatcher<T, K> {
