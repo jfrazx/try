@@ -3,7 +3,7 @@ import { TryManager } from '../manager';
 export type TryProperties<T, K extends keyof T> = Omit<Pick<T, K>, 'try'>;
 
 export type Tryable<T extends object, K extends keyof T = keyof T> = T &
-  TryMethods<T, K>;
+  TryCatchExtension<T, K>;
 
 export interface TryCatchExtension<T extends object, K extends keyof T>
   extends TryMethods<T, K> {
@@ -18,8 +18,8 @@ export interface TryCatchOptions extends SharedOptions {}
 
 export interface TryError {
   error: Error;
-  arguments: any[];
   property: string;
+  arguments: any[];
   returnOnError: any;
 }
 

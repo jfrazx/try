@@ -3,7 +3,14 @@ import { TryCatch, Try, TryCatchExtension } from '../../src';
 export interface Gambler
   extends TryCatchExtension<
     Gambler,
-    'fail' | 'failOptions' | 'asyncFail' | 'asyncFailOptions' | 'test'
+    | 'fail'
+    | 'failOptions'
+    | 'asyncFail'
+    | 'asyncFailOptions'
+    | 'test'
+    | 'success'
+    | 'successAsync'
+    | 'successUndefined'
   > {}
 
 @TryCatch<Gambler>()
@@ -32,4 +39,17 @@ export class Gambler {
   get test(): string {
     throw new Error(`This should fail property accessor`);
   }
+
+  @Try()
+  async successAsync() {
+    return 'success';
+  }
+
+  @Try()
+  success() {
+    return 'success';
+  }
+
+  @Try()
+  successUndefined() {}
 }

@@ -63,5 +63,35 @@ describe('Try', () => {
         `[TryError]: Property 'doesNotExist' does not exist in TryMap`,
       );
     });
+
+    it('should not throw an error when called normally | async', async () => {
+      const success = await gambler.successAsync();
+
+      expect(success).to.equal('success');
+    });
+
+    it('should not throw an error when called through try | async', async () => {
+      const success = await gambler.try.successAsync();
+
+      expect(success).to.equal('success');
+    });
+
+    it('should not throw an error when called normally | sync', () => {
+      const success = gambler.success();
+
+      expect(success).to.equal('success');
+    });
+
+    it('should not throw an error when called through try | sync', () => {
+      const success = gambler.try.success();
+
+      expect(success).to.equal('success');
+    });
+
+    it('should not throw an error when called through try returning undefined | sync', () => {
+      const success = gambler.try.successUndefined();
+
+      expect(success).to.be.undefined;
+    });
   });
 });
