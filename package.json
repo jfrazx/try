@@ -31,7 +31,7 @@
   "author": "jfrazx",
   "license": "MIT",
   "dependencies": {
-    "@status/defaults": "^1.3.2"
+    "@status/defaults": "^1.3.3"
   },
   "devDependencies": {
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
