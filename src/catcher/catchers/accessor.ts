@@ -1,4 +1,4 @@
-import { TryCatchPrepare } from '../interfaces';
+import type { TryCatchPrepare } from '../interfaces';
 import { ErrorCatcher } from '../base';
 
 export class AccessorCatcher<

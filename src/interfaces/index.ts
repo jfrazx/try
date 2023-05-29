@@ -1,4 +1,4 @@
-import { TryManager } from '../manager';
+import type { TryManager } from '../manager';
 
 export type TryProperties<T, K extends keyof T> = Omit<Pick<T, K>, 'try'>;
 

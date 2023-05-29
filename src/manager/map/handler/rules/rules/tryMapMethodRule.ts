@@ -1,5 +1,5 @@
 import { ShouldHandleTryMapRule } from '../base';
-import { TryMap } from '../../../map';
+import type { TryMap } from '../../../map';
 
 export class TryMapMethodRule<
   T extends TryMap<T, K>,

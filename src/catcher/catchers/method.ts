@@ -1,4 +1,4 @@
-import { TryCatchPrepare } from '../interfaces';
+import type { TryCatchPrepare } from '../interfaces';
 import { ErrorCatcher } from '../base';
 
 export class MethodCatcher<T extends object, K extends keyof T> extends ErrorCatcher<

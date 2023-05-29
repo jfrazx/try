@@ -1,5 +1,5 @@
-import { Tryable, ShouldHandle } from '../../../interfaces';
-import { TryHandler } from '../../handler';
+import type { Tryable, ShouldHandle } from '../../../interfaces';
+import type { TryHandler } from '../../handler';
 
 export interface ShouldHandleConstructor<T extends object, K extends keyof T> {
   new (

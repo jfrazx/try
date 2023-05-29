@@ -1,5 +1,5 @@
+import type { TryOptions } from '../interfaces';
 import { TryClassWrapper } from '../wrapper';
-import { TryOptions } from '../interfaces';
 
 export const Try = <T extends object>(tryOptions: TryOptions = {}) => {
   return <K extends keyof T>(

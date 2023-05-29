@@ -9,6 +9,6 @@ export class ReflectRule<
   }
 
   handle(): T[K] {
-    return Reflect.get(this.target, this.property, this.receiver);
+    return Reflect.get(this.target, this.property, this.receiver) as T[K];
   }
 }

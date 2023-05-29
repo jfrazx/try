@@ -1,4 +1,4 @@
-import { TryMap } from '../../../map';
+import type { TryMap } from '../../../map';
 
 export abstract class ShouldHandleTryMapRule<
   T extends TryMap<T, K>,

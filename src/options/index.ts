@@ -1,4 +1,4 @@
-import { TryCatchOptions, RegistrationOptions } from '../interfaces';
+import type { TryCatchOptions, RegistrationOptions } from '../interfaces';
 
 export interface TryAllOptions {
   tryOptions?: Partial<RegistrationOptions>;

@@ -1,4 +1,4 @@
-import { CatchPrepare } from '../interfaces';
+import type { CatchPrepare } from '../interfaces';
 
 export class ErrorThrower<T extends object, K extends keyof T>
   implements CatchPrepare<T, K>

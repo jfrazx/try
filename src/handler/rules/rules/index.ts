@@ -1,4 +1,4 @@
-import { ShouldHandleConstructor } from '../interfaces';
+import type { ShouldHandleConstructor } from '../interfaces';
 import { TryManagerRule } from './tryManager';
 import { ReflectRule } from './reflect';
 import { TryRule } from './try';

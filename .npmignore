@@ -1,4 +1,5 @@
 .DS_Store
+Thumbs.db
 
 *.ts
 *.log
@@ -12,20 +13,28 @@ jest.config.js
 .prettierrc
 .releaserc
 .nycrc.json
+.yarnrc.yml
+cspell.json
 *.lcov
 yarn.lock
-mocha.opts
+package-lock.json
 
 .env.*
-
-.nyc_output/
 
 !*.d.ts
 
 typings/
 node_modules/
 src/
+examples/
+build-examples/
 spec/
 test/
+docs/
+scripts/
+.yarn/
+.husky/
+.nyc_output/
 .vscode/
+.github/
 coverage/

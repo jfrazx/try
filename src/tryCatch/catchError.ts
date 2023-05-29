@@ -1,4 +1,4 @@
-import { TryOptions } from '../interfaces';
+import type { TryOptions } from '../interfaces';
 import { CatchRunner } from '../catcher';
 
 export const CatchError = <T extends object>(tryOptions: TryOptions = {}) => {

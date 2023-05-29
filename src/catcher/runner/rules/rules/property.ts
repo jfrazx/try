@@ -1,4 +1,4 @@
-import { CatchError } from '../../../interfaces';
+import type { CatchError } from '../../../interfaces';
 import { isObject } from '../../../../helpers';
 import { CatcherRule } from '../base';
 
@@ -12,7 +12,7 @@ export class PropertyCatcherRule<
 
   handle(): CatchError<T, K> {
     throw new Error(
-      `[TryError]: Only methods and accessors can be captured. Property '${this.property}' not supported`,
+      `[TryError]: Only methods and accessors can be captured. Property '${this.property.toString()}' not supported`,
     );
   }
 }

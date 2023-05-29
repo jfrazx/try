@@ -5,7 +5,7 @@ describe('Catch', () => {
   it('should throw an error when attempting to catch a property', () => {
     @TryCatch<Test>()
     class Test {
-      // @ts-ignore
+      // @ts-expect-error
       @Catch<Test>()
       failure = 'this will throw an error';
     }

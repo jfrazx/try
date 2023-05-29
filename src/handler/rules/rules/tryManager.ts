@@ -1,4 +1,4 @@
-import { TryManager } from '../../../manager';
+import type { TryManager } from '../../../manager';
 import { ShouldHandleRule } from '../base';
 import { Handle } from '../interfaces';
 

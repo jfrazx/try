@@ -1,6 +1,6 @@
 import { isSymbol } from '../../../../../helpers';
 import { ShouldHandleTryMapRule } from '../base';
-import { TryMap } from '../../../map';
+import type { TryMap } from '../../../map';
 
 export class InheritedRule<
   T extends TryMap<T, K>,

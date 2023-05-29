@@ -1,5 +1,5 @@
-import { Tryable, ShouldHandle } from '../../interfaces';
-import { TryHandler } from '../handler';
+import type { Tryable, ShouldHandle } from '../../interfaces';
+import type { TryHandler } from '../handler';
 import { rules } from './rules';
 
 export abstract class HandlerRuleRunner {

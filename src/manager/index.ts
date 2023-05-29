@@ -1,4 +1,4 @@
-import { TryCatchOptions, DecoratedEventMap } from '../interfaces';
+import type { TryCatchOptions, DecoratedEventMap } from '../interfaces';
 import { CatchRunner } from '../catcher';
 import { TryMapHandler } from './map';
 
@@ -10,10 +10,12 @@ export class TryManager<T extends object, K extends keyof T> {
   registerTryCatchDescriptors(
     target: T,
     descriptorMap: DecoratedEventMap<T, K>[],
-  ): void {
+  ): T {
     descriptorMap
       .filter(({ property }) => this.tryMap.hasNotBeenRegisteredInTryMap(property))
       .forEach((descriptor) => this.registerTryCatchDescriptor(target, descriptor));
+
+    return target;
   }
 
   private registerTryCatchDescriptor(
@@ -25,7 +27,7 @@ export class TryManager<T extends object, K extends keyof T> {
       global: { ...this.global },
     });
 
-    this.getTryMap().addToTryMap(property, catcher);
+    this.tryMap.addToTryMap(property, catcher);
   }
 
   getTryMap() {

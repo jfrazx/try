@@ -11,9 +11,11 @@ logs
 dist/
 build/
 
+build-examples/
 node_modules/
 .nyc_output/
 coverage/
+.yarn/
 
 */.DS_Store
 

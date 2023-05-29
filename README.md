@@ -12,4 +12,4 @@ yarn:
 
 ## Usage
 
-Soon
+Soon, but not really.

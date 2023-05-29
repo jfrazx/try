@@ -1,5 +1,5 @@
 export * from './tryCatch';
-export {
+export type {
   Tryable,
   TryError,
   TryMethods,

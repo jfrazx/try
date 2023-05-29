@@ -37,7 +37,7 @@ describe('Try', () => {
     it('should throw an error asynchronously when called normally', async () => {
       try {
         await gambler.asyncFail();
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).to.equal(`This should fail async`);
       }
     });

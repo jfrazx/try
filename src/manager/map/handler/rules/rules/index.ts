@@ -1,4 +1,4 @@
-import { ShouldHandle } from '../../../../../interfaces';
+import type { ShouldHandle } from '../../../../../interfaces';
 import { TryMapMethodRule } from './tryMapMethodRule';
 import { InheritedRule } from './inheritedRule';
 import { CatcherRule } from './catcherRule';

@@ -1,6 +1,6 @@
+import type { Tryable } from '../../interfaces';
+import type { TryManager } from '../../manager';
 import { HandlerRuleRunner } from '../rules';
-import { TryManager } from '../../manager';
-import { Tryable } from '../../interfaces';
 
 export class TryHandler<T extends object, K extends keyof T>
   implements ProxyHandler<T>

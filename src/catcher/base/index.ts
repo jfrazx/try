@@ -1,5 +1,5 @@
-import { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
-import { OptionsContainer } from '../../options';
+import type { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
+import type { OptionsContainer } from '../../options';
 
 export abstract class ErrorCatcher<T extends object, K extends keyof T>
   implements CatchError<T, K>
@@ -17,10 +17,17 @@ export abstract class ErrorCatcher<T extends object, K extends keyof T>
     try {
       const result = this.original.apply(this.target, args);
 
-      return result?.catch?.((error: Error) => this.onError(error, args)) ?? result;
-    } catch (error) {
-      return this.onError(error, args);
+      return this.catchReturn(result, args);
+    } catch (error: any) {
+      return this.onError(error as Error, args);
     }
+  }
+
+  private catchReturn(returnValue: any, args: any[]): any {
+    return (
+      returnValue?.catch?.((error: Error) => this.onError(error, args)) ??
+      returnValue
+    );
   }
 
   get alwaysCatch(): boolean {
@@ -39,7 +46,9 @@ export abstract class ErrorCatcher<T extends object, K extends keyof T>
   }
 
   protected binding(): TryCatchBinding<T, K> {
-    return (this.alwaysCatch ? this.catchError.bind(this) : this.original) as any;
+    return this.alwaysCatch
+      ? this.catchError.bind(this)
+      : (this.original as TryCatchBinding<T, K>);
   }
 
   abstract prepareRun(): TryCatchPrepare<T, K>;

@@ -1,6 +1,6 @@
-import { OptionsContainer } from '../../../../options';
-import { ShouldHandle } from '../../../../interfaces';
-import { CatchError } from '../../../interfaces';
+import type { OptionsContainer } from '../../../../options';
+import type { ShouldHandle } from '../../../../interfaces';
+import type { CatchError } from '../../../interfaces';
 
 export abstract class CatcherRule<T extends object, K extends keyof T>
   implements ShouldHandle

@@ -1,5 +1,5 @@
+import type { CatchError } from '../../../interfaces';
 import { MethodCatcher } from '../../../catchers';
-import { CatchError } from '../../../interfaces';
 import { isFunction } from '../../../../helpers';
 import { CatcherRule } from '../base';
 
