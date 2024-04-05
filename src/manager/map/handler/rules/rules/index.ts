@@ -3,7 +3,7 @@ import { TryMapMethodRule } from './tryMapMethodRule';
 import { InheritedRule } from './inheritedRule';
 import { CatcherRule } from './catcherRule';
 
-interface TryHandleConstructor<T extends object, K extends keyof T> {
+export interface TryHandleConstructor<T extends object, K extends keyof T> {
   new (target: T, property: K): ShouldHandle;
 }
 

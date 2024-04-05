@@ -1,5 +1,5 @@
 import type { ShouldHandle } from '../../../../interfaces';
-import { rules } from './rules';
+import { TryHandleConstructor, rules } from './rules';
 
 export abstract class TryHandlerRuleRunner {
   static fetchRule<T extends object, K extends keyof T>(
@@ -7,7 +7,7 @@ export abstract class TryHandlerRuleRunner {
     property: K | string,
   ): ShouldHandle {
     return rules
-      .map((Rule) => new Rule(target, property))
-      .find((rule) => rule.shouldHandle())!;
+      .map((Rule: TryHandleConstructor<T, K>) => new Rule(target, property as K))
+      .find((rule: ShouldHandle) => rule.shouldHandle())!;
   }
 }
