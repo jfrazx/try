@@ -19,7 +19,8 @@ describe('Try', () => {
       }
 
       expect(() => {
-        new Testable();
+        const test = new Testable();
+        console.log(test.failure);
       }).to.throw(
         `[TryError]: Only methods and accessors can be captured. Property 'failure' not supported`,
       );
