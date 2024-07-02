@@ -1,6 +1,25 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "language": "en",
-  "words": ["tryable", "klass"],
+  "ignorePaths": [
+    "node_modules",
+    "build",
+    "coverage",
+    "docs",
+    ".nyc_output",
+    ".yarn"
+  ],
+  "words": [
+    "codecov",
+    "codeql",
+    "jfrazx",
+    "klass",
+    "lcov",
+    "microbundle",
+    "precoverage",
+    "predocs",
+    "Snyk",
+    "tryable"
+  ],
   "ignoreRegExpList": ["/from '[@a-zA-Z]'/", "/YY[YMD hms]+/"]
 }

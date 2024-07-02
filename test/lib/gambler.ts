@@ -1,17 +1,18 @@
 import { TryCatch, Try, TryCatchExtension } from '../../src';
 
-export interface Gambler
-  extends TryCatchExtension<
-    Gambler,
-    | 'fail'
-    | 'failOptions'
-    | 'asyncFail'
-    | 'asyncFailOptions'
-    | 'test'
-    | 'success'
-    | 'successAsync'
-    | 'successUndefined'
-  > {}
+type GamblerProps = Pick<
+  Gambler,
+  | 'fail'
+  | 'failOptions'
+  | 'asyncFail'
+  | 'asyncFailOptions'
+  | 'test'
+  | 'success'
+  | 'successAsync'
+  | 'successUndefined'
+>;
+
+export interface Gambler extends TryCatchExtension<Gambler, keyof GamblerProps> {}
 
 @TryCatch<Gambler>()
 export class Gambler {

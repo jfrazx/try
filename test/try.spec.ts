@@ -1,5 +1,5 @@
+import { Gambler } from './lib/gambler';
 import { TryCatch, Try } from '../src';
-import { Gambler } from './lib';
 import { expect } from 'chai';
 
 describe('Try', () => {
