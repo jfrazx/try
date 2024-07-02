@@ -7,53 +7,53 @@ describe('CatchError', () => {
     it('should always catch synchronous method errors and return null', () => {
       class FailMethodSync {
         @CatchError()
-        suck() {
+        sad() {
           throw new Error(`I am a failure`);
         }
       }
 
       const fail = new FailMethodSync();
 
-      expect(fail.suck()).to.be.null;
+      expect(fail.sad()).to.be.null;
     });
 
     it('should always catch asynchronous method errors and return null', async () => {
       class FailMethodAsync {
         @CatchError()
-        async suck() {
+        async sad() {
           throw new Error(`I am a failure`);
         }
       }
 
       const fail = new FailMethodAsync();
 
-      expect(await fail.suck()).to.be.null;
+      expect(await fail.sad()).to.be.null;
     });
 
     it('should always catch synchronous property errors and return null', () => {
       class FailPropertySync {
         @CatchError()
-        get suck() {
+        get sad() {
           throw new Error(`I am a failure`);
         }
       }
 
       const fail = new FailPropertySync();
 
-      expect(fail.suck).to.be.null;
+      expect(fail.sad).to.be.null;
     });
 
     it('should always catch asynchronous property errors and return null', async () => {
       class FailPropertyAsync {
         @CatchError()
-        get suck() {
+        get sad() {
           return Promise.reject(new Error(`I am a failure`));
         }
       }
 
       const fail = new FailPropertyAsync();
 
-      expect(await fail.suck).to.be.null;
+      expect(await fail.sad).to.be.null;
     });
   });
 
@@ -63,14 +63,14 @@ describe('CatchError', () => {
 
       class FailMethodSync {
         @CatchError({ returnOnError: value })
-        suck(): string {
+        sad(): string {
           throw new Error(`I am a failure`);
         }
       }
 
       const fail = new FailMethodSync();
 
-      expect(fail.suck()).to.equal(value);
+      expect(fail.sad()).to.equal(value);
     });
 
     it('should always catch asynchronous method errors and return null', async () => {
@@ -78,14 +78,14 @@ describe('CatchError', () => {
 
       class FailMethodAsync {
         @CatchError({ returnOnError: value })
-        async suck(): Promise<string> {
+        async sad(): Promise<string> {
           throw new Error(`I am a failure`);
         }
       }
 
       const fail = new FailMethodAsync();
 
-      expect(await fail.suck()).to.equal(value);
+      expect(await fail.sad()).to.equal(value);
     });
 
     it('should always catch synchronous property errors and return null', () => {
@@ -93,14 +93,14 @@ describe('CatchError', () => {
 
       class FailPropertySync {
         @CatchError({ returnOnError: value })
-        get suck(): string {
+        get sad(): string {
           throw new Error(`I am a failure`);
         }
       }
 
       const fail = new FailPropertySync();
 
-      expect(fail.suck).to.equal(value);
+      expect(fail.sad).to.equal(value);
     });
 
     it('should always catch asynchronous property errors and return null', async () => {
@@ -108,14 +108,14 @@ describe('CatchError', () => {
 
       class FailPropertyAsync {
         @CatchError({ returnOnError: value })
-        get suck(): Promise<string> {
+        get sad(): Promise<string> {
           return Promise.reject(new Error(`I am a failure`));
         }
       }
 
       const fail = new FailPropertyAsync();
 
-      expect(await fail.suck).to.equal(value);
+      expect(await fail.sad).to.equal(value);
     });
 
     it('should run on method errors', () => {
@@ -128,19 +128,19 @@ describe('CatchError', () => {
         expect(tryError.arguments).to.be.an('array');
         expect(tryError.arguments).to.have.lengthOf(1);
         expect(tryError.arguments[0]).to.equal(param);
-        expect(tryError.property).to.equal('suck');
+        expect(tryError.property).to.equal('sad');
         expect(tryError.error).to.equal(error);
       });
 
       class FailMethodSyncRunOnError {
         @CatchError({ runOnError, returnOnError })
-        suck(_value: string): string {
+        sad(_value: string): string {
           throw error;
         }
       }
 
       const fail = new FailMethodSyncRunOnError();
-      const result = fail.suck(param);
+      const result = fail.sad(param);
 
       expect(result).to.equal(returnOnError);
 
@@ -156,7 +156,7 @@ describe('CatchError', () => {
         expect(tryError).to.be.an('object');
         expect(tryError.arguments).to.be.an('array');
         expect(tryError.arguments).to.have.lengthOf(0);
-        expect(tryError.property).to.equal('suck');
+        expect(tryError.property).to.equal('sad');
         expect(tryError.error).to.equal(error);
 
         return runOnErrorReturn;
@@ -164,13 +164,13 @@ describe('CatchError', () => {
 
       class FailMethodSyncRunOnError {
         @CatchError({ runOnError, returnOnError })
-        get suck(): string {
+        get sad(): string {
           throw error;
         }
       }
 
       const fail = new FailMethodSyncRunOnError();
-      const result = fail.suck;
+      const result = fail.sad;
 
       expect(result).to.equal(runOnErrorReturn);
 

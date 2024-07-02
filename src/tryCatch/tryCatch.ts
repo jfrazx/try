@@ -6,11 +6,10 @@ import type { TryCatchOptions } from '../interfaces';
  *
  * @template T
  * @param {TryCatchOptions} [options={}]
- * @returns {(klass: TryConstruct<T>) => TryConstruct<T>}
+ * @returns
  */
-export const TryCatch =
-  <T extends object>(
-    options: TryCatchOptions = {},
-  ): ((klass: TryConstruct<T>) => TryConstruct<T>) =>
-  (klass: TryConstruct<T>) =>
-    TryClassWrapper.wrap(klass, options);
+export function TryCatch<T extends object>(options: TryCatchOptions = {}) {
+  return (klass: TryConstruct<T>): TryConstruct<T> => {
+    return TryClassWrapper.wrap(klass, options);
+  };
+}

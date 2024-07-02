@@ -7,6 +7,15 @@ export interface TryConstruct<T extends object> {
   new (...args: any[]): T;
 }
 
+/**
+ * @description Proxy handler for catching and managing errors for properties and methods of a class
+ *
+ * @export
+ * @class TryClassWrapper
+ * @implements {ProxyHandler<T>}
+ * @template T
+ * @template K
+ */
 export class TryClassWrapper<T extends Function, K extends keyof T>
   implements ProxyHandler<T>
 {

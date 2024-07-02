@@ -32,9 +32,9 @@ export interface TryOptions extends SharedOptions {
 }
 
 export interface DecoratedEventMap<T extends object, K extends keyof T> {
-  property: K;
-  options: RegistrationOptions;
   descriptor: TypedPropertyDescriptor<T[K]>;
+  options: RegistrationOptions;
+  property: K;
 }
 
 export interface RegistrationOptions extends TryOptions {

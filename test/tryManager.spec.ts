@@ -1,5 +1,5 @@
 import { TryManager } from '../src/manager';
-import { Gambler } from './lib';
+import { Gambler } from './lib/gambler';
 import { expect } from 'chai';
 
 describe('TryManager', () => {
