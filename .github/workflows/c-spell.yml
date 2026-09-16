@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - master
+      - develop
 
   pull_request:
     branches:
       - master
+      - develop
     types:
       - opened
       - reopened
@@ -21,11 +23,11 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Github checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup nodejs
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: latest
+          node-version: 24.15.0
           cache: 'npm'
       - name: Run cspell
         run: npx cspell lint --no-progress --fail-fast "**"

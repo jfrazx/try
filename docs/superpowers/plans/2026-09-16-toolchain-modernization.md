@@ -49,8 +49,10 @@ Expected: FAIL — `Cannot read config file` referencing `prettier/@typescript-e
 
 ```bash
 npm uninstall @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-node eslint-plugin-prettier
-npm install --save-dev eslint@^10.10.0 @eslint/js@^10.10.0 typescript-eslint@^8.70.0 eslint-config-prettier@^10.1.8 globals@^16.0.0
+npm install --save-dev eslint@^10.10.0 @eslint/js@^10.0.1 typescript-eslint@^8.70.0 eslint-config-prettier@^10.1.8 globals@^17.12.0
 ```
+
+`eslint` and `@eslint/js` version independently: 10.10.0 is the current linter, but the `@eslint/js` 10 line stops at 10.0.1. Do not assume the two track together.
 
 `eslint-plugin-node` is unmaintained. `eslint-plugin-prettier` is dropped because running Prettier as a lint rule is no longer recommended — Prettier gets its own scripts in Step 4.
 
@@ -58,15 +60,16 @@ npm install --save-dev eslint@^10.10.0 @eslint/js@^10.10.0 typescript-eslint@^8.
 
 ```js
 // @ts-check
+import { defineConfig, globalIgnores } from 'eslint/config';
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier/flat';
 
-export default tseslint.config(
-  { ignores: ['dist/**', 'build/**', 'coverage/**', 'docs/api/**'] },
+export default defineConfig([
+  globalIgnores(['dist/**', 'build/**', 'coverage/**', 'docs/api/**']),
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  tseslint.configs.recommended,
   {
     files: ['**/*.ts'],
     languageOptions: {
@@ -74,12 +77,41 @@ export default tseslint.config(
       parserOptions: { sourceType: 'module' },
     },
     rules: {
+      // The decorators are generic over user-supplied shapes. `any` is
+      // load-bearing in their signatures rather than a gap in the typing.
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-inferrable-types': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-use-before-define': 'off',
       '@typescript-eslint/no-empty-function': 'off',
+
+      // `T extends Function` is how this library says "a class constructor":
+      // it constrains TryClassWrapper, keys the static manager and decorator
+      // maps, and matches the signature of the `construct` proxy trap's
+      // `newTarget`. Narrowing it would change the exported generic bounds,
+      // which is a public type-API change, not a lint fix.
+      '@typescript-eslint/no-unsafe-function-type': 'off',
+
+      // Class/interface declaration merging is the library's extension idiom.
+      // `OptionsContainer` gets its typed properties this way because the
+      // values are installed via Object.defineProperty, and consumers use the
+      // same pattern to pick up `.try` -- see `Gambler` in test/lib/gambler.ts.
+      '@typescript-eslint/no-unsafe-declaration-merging': 'off',
+
+      // An underscore prefix is this codebase's existing marker for a
+      // deliberately unused binding.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+
+      // The library's extension pattern relies on empty interfaces.
       '@typescript-eslint/no-empty-object-type': 'off',
+
       'lines-between-class-members': [
         'error',
         'always',
@@ -90,15 +122,52 @@ export default tseslint.config(
   {
     files: ['test/**/*.ts'],
     languageOptions: { globals: { ...globals.jest } },
-    rules: { '@typescript-eslint/ban-ts-comment': 'off' },
+    rules: {
+      // The specs use @ts-ignore and @ts-expect-error deliberately, to assert
+      // that the decorators reject invalid targets at compile time.
+      '@typescript-eslint/ban-ts-comment': 'off',
+
+      // chai asserts by property access -- `expect(x).to.be.null` is an
+      // expression, not a call. Jest's equivalents are calls, so this
+      // override should be deleted along with chai in the Jest migration.
+      '@typescript-eslint/no-unused-expressions': 'off',
+    },
   },
   prettier,
-);
+]);
 ```
 
-Two rules need explaining so they are not "cleaned up" later by mistake:
-- `no-empty-object-type` is off because the library's extension pattern relies on it — `export interface Gambler extends TryCatchExtension<Gambler, keyof GamblerProps> {}` in `test/lib/gambler.ts` is an intentional empty interface.
-- `ban-ts-comment` is off for tests only, because `test/try.spec.ts` uses `@ts-ignore` and `test/catch.spec.ts` uses `@ts-expect-error` to assert compile-time rejection of decorated properties.
+`defineConfig` and `globalIgnores` come from ESLint core, which is where typescript-eslint now points: `tseslint.config()` is deprecated in its favour. `defineConfig` flattens nested arrays, so `tseslint.configs.recommended` is passed directly rather than spread.
+
+Six rules are switched off deliberately, and the config comments say why so they
+are not "cleaned up" later by mistake. Three of them were found by running the
+config, not by reading the old one:
+
+- `no-unsafe-function-type` — `T extends Function` is how the library says "a
+  class constructor". It constrains `TryClassWrapper`, keys both static maps in
+  `src/wrapper/index.ts`, types `newTarget` on the `construct` proxy trap, and
+  narrows `isFunction` in `src/helpers/index.ts`. Narrowing it would change the
+  exported generic bounds — a public type-API change, which Tasks 1-9 forbid.
+- `no-unsafe-declaration-merging` — class/interface merging is the extension
+  idiom. `OptionsContainer` (`src/options/index.ts:14`) gets its typed
+  properties this way because the values are installed with
+  `Object.defineProperty`, and consumers merge the same way to pick up `.try`.
+- `no-unused-expressions`, **test files only** — chai asserts by property
+  access, so `expect(x).to.be.null` is an expression rather than a call. Jest's
+  equivalents are calls, so Task 5 deletes this override along with chai.
+- `no-empty-object-type` — the extension pattern relies on empty interfaces:
+  `export interface Gambler extends TryCatchExtension<Gambler, keyof GamblerProps> {}`
+  in `test/lib/gambler.ts` is intentional.
+- `ban-ts-comment`, **test files only** — `test/try.spec.ts` uses `@ts-ignore`
+  and `test/catch.spec.ts` uses `@ts-expect-error` to assert compile-time
+  rejection of decorated properties.
+- `no-explicit-any` and friends — carried over from the old config.
+
+`no-unused-vars` is kept on, configured to respect an underscore prefix, because
+the codebase already writes deliberately-unused bindings that way (`_value` in
+`test/catchError.spec.ts:137`). One catch binding in `test/try.spec.ts:51` is
+renamed `error` -> `_error` to match; it is a test file, not `src/**`, and the
+rename changes nothing at runtime.
 
 Everything else from the old `.eslintrc` is deliberately dropped. `no-underscore-dangle`, `arrow-body-style`, `no-plusplus`, `func-names`, `prefer-destructuring`, `no-else-return`, `no-console` and `comma-dangle` all set rules to `0` that were never switched on, because the old config never extended airbnb. Carrying them forward would be copying dead config.
 
@@ -125,7 +194,11 @@ Expected: PASS, exit 0, no config error. If rule violations appear in `src/**`, 
 - [ ] **Step 6: Verify formatting is clean**
 
 Run: `npm run format:check`
-Expected: PASS. If it fails, run `npm run format` and re-check.
+Expected: FAIL on exactly one file — `src/manager/map/handler/rules/base/index.ts`, whose
+constructor parameter list predates Prettier 3's wrapping. Run `npm run format` and re-check.
+This is the one sanctioned `src/**` edit in Tasks 1-9: it moves whitespace inside a parameter
+list and changes no behavior. Any *other* file Prettier wants to touch is a surprise — stop
+and report it rather than reformatting blind.
 
 - [ ] **Step 7: Stage and hand over**
 
@@ -159,6 +232,7 @@ integration, and adds lint/format scripts.
 - Modify: `.github/workflows/c-spell.yml`
 - Modify: `.github/workflows/codeql.yml`
 - Create: `.github/workflows/lint.yml`
+- Modify: `.github/workflows/release.yml`
 - Modify: `package.json` (test script)
 
 **Interfaces:**
@@ -254,12 +328,49 @@ In `.github/workflows/c-spell.yml`: change `actions/checkout@v4` to `@v6`, `acti
 
 In `.github/workflows/codeql.yml`: change `actions/checkout@v4` to `@v6` and both `github/codeql-action/*@v3` to `@v4`.
 
-- [ ] **Step 7: Verify workflow syntax**
+- [ ] **Step 7: Guard `release.yml` before Step 4 arms it**
 
-Run: `npx --yes @action-validator/cli@latest .github/workflows/test.yml .github/workflows/lint.yml .github/workflows/c-spell.yml .github/workflows/codeql.yml`
+`release.yml` fires on `workflow_run` when `Test` completes on `master`, with no
+success guard, and runs `npx semantic-release`. It has never fired, because
+`test.yml` never ran on `master` — the branch bug fixed in Step 4 is also what
+kept the release disabled. Fixing one without the other means the next push to
+`master` attempts a first publish of `@status/try@1.0.0` with `NPM_TOKEN`, which
+is what Task 8 exists to prevent and is not cleanly reversible.
+
+Two changes. Drop the deleted `Snyk Security Check` from the workflow list:
+
+```yaml
+on:
+  workflow_run:
+    workflows: ['Test']
+    branches: [master]
+    types:
+      - completed
+```
+
+And add the success guard to the job:
+
+```yaml
+jobs:
+  build:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+```
+
+Leave the rest of the file alone — the `NPM_TOKEN` env and the microbundle build
+are Task 8's to remove. Ask Jason to revoke the `NPM_TOKEN` repository secret
+once this lands: the guard stops an accidental release, revoking the secret
+stops a token-authenticated one.
+
+- [ ] **Step 8: Verify workflow syntax**
+
+Run: `for f in .github/workflows/*.yml; do npx --yes @action-validator/cli@latest "$f"; done`
+
+The validator takes exactly one file per invocation -- passing a glob prints its usage and
+exits 0, which looks like a pass. Loop, and check each file reports individually.
 Expected: no errors. If the validator is unavailable offline, fall back to `python3 -c "import yaml,sys,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]; print('yaml ok')"`.
 
-- [ ] **Step 8: Stage and hand over**
+- [ ] **Step 9: Stage and hand over**
 
 ```bash
 git add .github/workflows/ package.json
@@ -279,6 +390,10 @@ rejects decorator syntax and breaks the suite. Sets
 removes ts-node entirely.
 
 Adds a lint workflow and pins exact Node versions.
+
+Guards release.yml on a successful Test run and drops the deleted Snyk
+workflow from its trigger list. Repairing the branch filter is what arms
+that trigger, so the guard belongs in the same change.
 ```
 
 ---
