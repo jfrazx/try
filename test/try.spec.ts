@@ -48,7 +48,7 @@ describe('Try', () => {
         const result = await gambler.try.asyncFail();
 
         expect(result).to.be.null;
-      } catch (error) {
+      } catch (_error) {
         expect(() => {
           throw new Error(`Test Failed`);
         }).not.to.throw();
