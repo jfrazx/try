@@ -65,11 +65,6 @@ export default defineConfig([
       // The specs use @ts-ignore and @ts-expect-error deliberately, to assert
       // that the decorators reject invalid targets at compile time.
       '@typescript-eslint/ban-ts-comment': 'off',
-
-      // chai asserts by property access -- `expect(x).to.be.null` is an
-      // expression, not a call. Jest's equivalents are calls, so this
-      // override should be deleted along with chai in the Jest migration.
-      '@typescript-eslint/no-unused-expressions': 'off',
     },
   },
   prettier,

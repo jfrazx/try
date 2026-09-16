@@ -1,6 +1,5 @@
 import { Gambler } from './lib/gambler';
 import { TryCatch } from '../src';
-import { expect } from 'chai';
 
 describe('TryCatch', () => {
   let gambler: Gambler;
@@ -10,12 +9,12 @@ describe('TryCatch', () => {
   });
 
   it('should be a function', () => {
-    expect(TryCatch).to.be.a('function');
+    expect(typeof TryCatch).toBe('function');
   });
 
   it('should decorate a class', () => {
-    expect(gambler.try).to.be.an('object');
-    expect(gambler.try.fail).to.be.a('function');
-    expect(gambler.try.asyncFail).to.be.a('function');
+    expect(typeof gambler.try).toBe('object');
+    expect(typeof gambler.try.fail).toBe('function');
+    expect(typeof gambler.try.asyncFail).toBe('function');
   });
 });

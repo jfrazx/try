@@ -1,6 +1,4 @@
 import { CatchError, TryError } from '../src';
-import * as sinon from 'sinon';
-import { expect } from 'chai';
 
 describe('CatchError', () => {
   describe('Standard', () => {
@@ -14,7 +12,7 @@ describe('CatchError', () => {
 
       const fail = new FailMethodSync();
 
-      expect(fail.sad()).to.be.null;
+      expect(fail.sad()).toBeNull();
     });
 
     it('should always catch asynchronous method errors and return null', async () => {
@@ -27,7 +25,7 @@ describe('CatchError', () => {
 
       const fail = new FailMethodAsync();
 
-      expect(await fail.sad()).to.be.null;
+      expect(await fail.sad()).toBeNull();
     });
 
     it('should always catch synchronous property errors and return null', () => {
@@ -40,7 +38,7 @@ describe('CatchError', () => {
 
       const fail = new FailPropertySync();
 
-      expect(fail.sad).to.be.null;
+      expect(fail.sad).toBeNull();
     });
 
     it('should always catch asynchronous property errors and return null', async () => {
@@ -53,7 +51,7 @@ describe('CatchError', () => {
 
       const fail = new FailPropertyAsync();
 
-      expect(await fail.sad).to.be.null;
+      expect(await fail.sad).toBeNull();
     });
   });
 
@@ -70,7 +68,7 @@ describe('CatchError', () => {
 
       const fail = new FailMethodSync();
 
-      expect(fail.sad()).to.equal(value);
+      expect(fail.sad()).toBe(value);
     });
 
     it('should always catch asynchronous method errors and return null', async () => {
@@ -85,7 +83,7 @@ describe('CatchError', () => {
 
       const fail = new FailMethodAsync();
 
-      expect(await fail.sad()).to.equal(value);
+      expect(await fail.sad()).toBe(value);
     });
 
     it('should always catch synchronous property errors and return null', () => {
@@ -100,7 +98,7 @@ describe('CatchError', () => {
 
       const fail = new FailPropertySync();
 
-      expect(fail.sad).to.equal(value);
+      expect(fail.sad).toBe(value);
     });
 
     it('should always catch asynchronous property errors and return null', async () => {
@@ -115,7 +113,7 @@ describe('CatchError', () => {
 
       const fail = new FailPropertyAsync();
 
-      expect(await fail.sad).to.equal(value);
+      expect(await fail.sad).toBe(value);
     });
 
     it('should run on method errors', () => {
@@ -123,13 +121,13 @@ describe('CatchError', () => {
       const returnOnError = `terrible`;
       const param = 'this is a test';
 
-      const runOnError = sinon.spy((tryError: TryError) => {
-        expect(tryError).to.be.an('object');
-        expect(tryError.arguments).to.be.an('array');
-        expect(tryError.arguments).to.have.lengthOf(1);
-        expect(tryError.arguments[0]).to.equal(param);
-        expect(tryError.property).to.equal('sad');
-        expect(tryError.error).to.equal(error);
+      const runOnError = jest.fn((tryError: TryError) => {
+        expect(typeof tryError).toBe('object');
+        expect(Array.isArray(tryError.arguments)).toBe(true);
+        expect(tryError.arguments).toHaveLength(1);
+        expect(tryError.arguments[0]).toBe(param);
+        expect(tryError.property).toBe('sad');
+        expect(tryError.error).toBe(error);
       });
 
       class FailMethodSyncRunOnError {
@@ -142,9 +140,9 @@ describe('CatchError', () => {
       const fail = new FailMethodSyncRunOnError();
       const result = fail.sad(param);
 
-      expect(result).to.equal(returnOnError);
+      expect(result).toBe(returnOnError);
 
-      sinon.assert.calledOnce(runOnError);
+      expect(runOnError).toHaveBeenCalledTimes(1);
     });
 
     it('should run on property errors', () => {
@@ -152,12 +150,12 @@ describe('CatchError', () => {
       const runOnErrorReturn = 'override';
       const returnOnError = `terrible`;
 
-      const runOnError = sinon.spy((tryError: TryError) => {
-        expect(tryError).to.be.an('object');
-        expect(tryError.arguments).to.be.an('array');
-        expect(tryError.arguments).to.have.lengthOf(0);
-        expect(tryError.property).to.equal('sad');
-        expect(tryError.error).to.equal(error);
+      const runOnError = jest.fn((tryError: TryError) => {
+        expect(typeof tryError).toBe('object');
+        expect(Array.isArray(tryError.arguments)).toBe(true);
+        expect(tryError.arguments).toHaveLength(0);
+        expect(tryError.property).toBe('sad');
+        expect(tryError.error).toBe(error);
 
         return runOnErrorReturn;
       });
@@ -172,9 +170,9 @@ describe('CatchError', () => {
       const fail = new FailMethodSyncRunOnError();
       const result = fail.sad;
 
-      expect(result).to.equal(runOnErrorReturn);
+      expect(result).toBe(runOnErrorReturn);
 
-      sinon.assert.calledOnce(runOnError);
+      expect(runOnError).toHaveBeenCalledTimes(1);
     });
   });
 });

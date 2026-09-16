@@ -8,7 +8,6 @@
   "module": "./build/index.module.js",
   "unpkg": "./build/index.umd.js",
   "scripts": {
-    "commit": "git-cz",
     "prebuild": "rimraf build",
     "build": "microbundle",
     "check": "npm-check -u",
@@ -19,12 +18,10 @@
     "format:check": "prettier --check \"{src,test}/**/*.ts\" \"*.{json,md}\"",
     "predocs": "rimraf docs/api",
     "docs": "typedoc src/index.ts --out docs/api",
-    "coverage:check": "nyc check-coverage",
-    "coverage:report": "nyc report --reporter=text-lcov > coverage.lcov",
-    "coverage:post": "codecov",
-    "precoverage:test": "rimraf coverage",
-    "coverage:test": "cross-env TS_NODE_PROJECT='./test/tsconfig.json' nyc mocha",
-    "test": "cross-env TS_NODE_PROJECT='./test/tsconfig.json' NODE_OPTIONS=--no-experimental-strip-types mocha"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "coverage": "jest --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "try",
@@ -40,44 +37,20 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@istanbuljs/nyc-config-typescript": "^1.0.2",
-    "@types/chai": "^4.3.16",
-    "@types/mocha": "^10.0.7",
+    "@swc/core": "^1.16.2",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.14.9",
-    "@types/sinon": "^17.0.3",
-    "chai": "^4.4.1",
-    "codecov": "^3.8.3",
-    "commitizen": "^4.3.0",
-    "cross-env": "^7.0.3",
-    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.12.0",
+    "jest": "^30.5.1",
     "microbundle": "^0.15.1",
-    "mocha": "^10.6.0",
     "npm-check": "^6.0.1",
-    "nyc": "^17.0.0",
     "prettier": "^3.3.2",
     "rimraf": "^5.0.7",
-    "sinon": "^18.0.0",
-    "source-map-support": "^0.5.21",
-    "ts-node": "^10.9.2",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.70.0"
-  },
-  "config": {
-    "commitizen": {
-      "path": "cz-conventional-changelog"
-    }
-  },
-  "mocha": {
-    "recursive": true,
-    "spec": "test/*.spec.ts",
-    "reporter": "spec",
-    "require": [
-      "ts-node/register/transpile-only",
-      "source-map-support/register"
-    ]
   },
   "bugs": {
     "url": "https://github.com/jfrazx/try/issues"

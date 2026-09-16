@@ -1,6 +1,5 @@
 import { TryManager } from '../src/manager';
 import { Gambler } from './lib/gambler';
-import { expect } from 'chai';
 
 describe('TryManager', () => {
   let gambler: Gambler;
@@ -10,12 +9,12 @@ describe('TryManager', () => {
   });
 
   it('should retrieve the TryManager', () => {
-    expect(gambler.getTryManager()).to.be.instanceOf(TryManager);
+    expect(gambler.getTryManager()).toBeInstanceOf(TryManager);
   });
 
   it('should always retrieve the same TryManager instance', () => {
     const gambler2 = new Gambler();
 
-    expect(gambler.getTryManager()).to.equal(gambler2.getTryManager());
+    expect(gambler.getTryManager()).toBe(gambler2.getTryManager());
   });
 });
