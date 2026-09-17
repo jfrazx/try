@@ -1,6 +1,6 @@
 {
   "name": "@status/try",
-  "version": "1.0.0",
+  "version": "0.0.0-development",
   "description": "Automatically catch errors on object methods and accessors",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -23,6 +23,10 @@
     "dist"
   ],
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=20.19.0"
   },
@@ -81,5 +85,21 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jfrazx/try.git"
+  },
+  "release": {
+    "branches": [
+      "master"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "angular"
+        }
+      ],
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/github",
+      "@semantic-release/npm"
+    ]
   }
 }

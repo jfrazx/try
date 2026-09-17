@@ -7,40 +7,29 @@ on:
     types:
       - completed
 
-jobs:
-  build:
-    # HELD -- do not remove without reading #19.
-    #
-    # This workflow has never run. `master` still keeps its workflow files at the
-    # `.github/` root, where GitHub does not register them, so merging this branch
-    # into `master` arms Release for the very first time. The repo has no
-    # semantic-release configuration, so `npx semantic-release` would fall back to
-    # stock defaults -- `master` is a release branch, `@semantic-release/npm` is a
-    # default plugin -- and publish `@status/try@1.0.0` through the legacy
-    # `NPM_TOKEN` path that #19 exists to replace, before trusted publishing is
-    # configured.
-    #
-    # Lift the hold by deleting the `false &&` below, as part of #19.
-    if: false && github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+permissions:
+  contents: write
+  id-token: write
 
-    permissions:
-      packages: write
-      contents: write
+jobs:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 'lts/*'
+          node-version: 24.15.0
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build
         run: npm run build
@@ -48,5 +37,4 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
+        run: npx semantic-release@25
