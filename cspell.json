@@ -3,12 +3,12 @@
   "language": "en",
   "ignorePaths": ["node_modules", "build", "dist", "coverage", "docs", ".yarn"],
   "words": [
+    "catchable",
     "codeql",
     "jfrazx",
     "klass",
     "lcov",
     "oxc",
-    "predocs",
     "rolldown",
     "Snyk",
     "swcrc",
