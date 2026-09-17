@@ -9,7 +9,19 @@ on:
 
 jobs:
   build:
-    if: github.event.workflow_run.conclusion == 'success'
+    # HELD -- do not remove without reading #19.
+    #
+    # This workflow has never run. `master` still keeps its workflow files at the
+    # `.github/` root, where GitHub does not register them, so merging this branch
+    # into `master` arms Release for the very first time. The repo has no
+    # semantic-release configuration, so `npx semantic-release` would fall back to
+    # stock defaults -- `master` is a release branch, `@semantic-release/npm` is a
+    # default plugin -- and publish `@status/try@1.0.0` through the legacy
+    # `NPM_TOKEN` path that #19 exists to replace, before trusted publishing is
+    # configured.
+    #
+    # Lift the hold by deleting the `false &&` below, as part of #19.
+    if: false && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     permissions:
