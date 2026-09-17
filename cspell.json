@@ -1,14 +1,7 @@
 {
   "version": "0.2",
   "language": "en",
-  "ignorePaths": [
-    "node_modules",
-    "build",
-    "coverage",
-    "docs",
-    ".nyc_output",
-    ".yarn"
-  ],
+  "ignorePaths": ["node_modules", "build", "dist", "coverage", "docs", ".yarn"],
   "words": [
     "codeql",
     "jfrazx",

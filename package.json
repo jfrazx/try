@@ -2,16 +2,35 @@
   "name": "@status/try",
   "version": "1.0.0",
   "description": "Automatically catch errors on object methods and accessors",
-  "main": "./build/index.js",
-  "source": "src/index.ts",
-  "exports": "./build/index.modern.js",
-  "module": "./build/index.module.js",
-  "unpkg": "./build/index.umd.js",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
-    "prebuild": "rimraf build",
-    "build": "microbundle",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "prepack": "npm run build",
     "check": "npm-check -u",
-    "dev": "microbundle watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"{src,test}/**/*.ts\" \"*.{json,md}\"",
@@ -36,20 +55,23 @@
     "@status/defaults": "^1.5.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@arethetypeswrong/core": "^0.18.5",
     "@eslint/js": "^10.0.1",
     "@swc/core": "^1.16.2",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.14.9",
+    "@types/node": "^22.18.0",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.12.0",
     "jest": "^30.5.1",
-    "microbundle": "^0.15.1",
     "npm-check": "^6.0.1",
     "prettier": "^3.3.2",
+    "publint": "^0.3.24",
     "rimraf": "^5.0.7",
-    "typescript": "^5.5.3",
+    "tsdown": "^0.23.0",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0"
   },
   "bugs": {
@@ -58,6 +80,6 @@
   "homepage": "https://github.com/jfrazx/try#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jfrazx/try.git"
+    "url": "git+https://github.com/jfrazx/try.git"
   }
 }
