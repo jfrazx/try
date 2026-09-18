@@ -16,9 +16,10 @@ export interface TryConstruct<T extends object> {
  * @template T
  * @template K
  */
-export class TryClassWrapper<T extends Function, K extends keyof T>
-  implements ProxyHandler<T>
-{
+export class TryClassWrapper<
+  T extends Function,
+  K extends keyof T,
+> implements ProxyHandler<T> {
   private static managerMap = new Map<Function, TryManager<any, any>>();
   private static decoratorMap: Default<
     Map<Function, DecoratedEventMap<any, any>[]>

@@ -2,9 +2,10 @@ import type { Tryable } from '../../interfaces';
 import type { TryManager } from '../../manager';
 import { HandlerRuleRunner } from '../rules';
 
-export class TryHandler<T extends object, K extends keyof T>
-  implements ProxyHandler<T>
-{
+export class TryHandler<
+  T extends object,
+  K extends keyof T,
+> implements ProxyHandler<T> {
   constructor(private readonly manager: TryManager<T, K>) {}
 
   get(target: T, property: string, receiver: Tryable<T, K>): T[K] {

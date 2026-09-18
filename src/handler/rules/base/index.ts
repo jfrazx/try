@@ -1,9 +1,10 @@
 import type { Tryable, ShouldHandle } from '../../../interfaces';
 import type { TryHandler } from '../../handler';
 
-export abstract class ShouldHandleRule<T extends object, K extends keyof T>
-  implements ShouldHandle
-{
+export abstract class ShouldHandleRule<
+  T extends object,
+  K extends keyof T,
+> implements ShouldHandle {
   constructor(
     protected readonly handler: TryHandler<T, K>,
     protected readonly target: T,
