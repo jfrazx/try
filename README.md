@@ -329,6 +329,7 @@ where an intersection reads better than a merged interface.
 | `Tryable`           | `T & TryCatchExtension<T, K>`                                                                         |
 | `TryMethods`        | `getTryManager()`                                                                                     |
 | `TryProperties`     | the shape of the `.try` map                                                                           |
+| `TryManager`        | what `getTryManager()` returns                                                                        |
 
 Generated API documentation lives in `docs/api` after `npm run docs`.
 
