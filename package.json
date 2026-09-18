@@ -39,7 +39,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"{src,test}/**/*.ts\" \"*.{json,md}\"",
     "format:check": "prettier --check \"{src,test}/**/*.ts\" \"*.{json,md}\"",
-    "docs": "typedoc src/index.ts --out docs/api",
+    "docs": "typedoc src/index.ts --out docs/api --treatWarningsAsErrors",
     "test": "jest",
     "test:watch": "jest --watch",
     "coverage": "jest --coverage",
