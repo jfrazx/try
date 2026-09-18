@@ -1,6 +1,6 @@
 import { TryCatch, Try, TryCatchExtension } from '../../src';
 
-type GamblerProps = Pick<
+export type GamblerProps = Pick<
   Gambler,
   | 'fail'
   | 'failOptions'
