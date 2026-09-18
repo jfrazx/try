@@ -2,24 +2,43 @@ import type { TryOptions } from '../interfaces';
 import { CatchRunner } from '../catcher';
 
 /**
- * @description Decorator used independently from TryCatch decorator for methods and accessors that will always catch errors
+ * Always catches errors thrown by the decorated method or accessor.
  *
- * @export
- * @template T
- * @param {TryOptions} [tryOptions={}]
- * @returns
+ * Standalone, unlike {@link Try} and {@link Catch} — the class needs no
+ * {@link TryCatch} wrapper and there is no `.try` map. A caught error yields
+ * `null` unless `returnOnError` says otherwise; an `async` member yields a
+ * `Promise` of that value.
+ *
+ * Note that the decorated member currently runs with `this` bound to the
+ * prototype rather than the instance, so a member reading instance state sees
+ * `undefined`. See
+ * {@link https://github.com/jfrazx/try/issues/33 | issue #33}.
+ *
+ * @template T - the class owning the decorated member
+ * @param tryOptions - catching behavior for this member
+ * @returns a method decorator that replaces the member's descriptor
  *
  * @example
  * ```ts
+ * import { CatchError } from '@status/try';
+ *
  * class Example {
  *   @CatchError()
- *   method() {
+ *   method(): string {
+ *     throw new Error('Error');
+ *   }
+ *
+ *   @CatchError({ returnOnError: 'fallback' })
+ *   withFallback(): string {
  *     throw new Error('Error');
  *   }
  * }
  *
  * const example = new Example();
- * example.method(); // returns null
+ *
+ * example.method(); // null
+ * example.withFallback(); // 'fallback'
+ * ```
  */
 export function CatchError<T extends object>(tryOptions: TryOptions = {}) {
   return <K extends keyof T>(

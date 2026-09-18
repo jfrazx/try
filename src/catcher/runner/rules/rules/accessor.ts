@@ -3,6 +3,7 @@ import { AccessorCatcher } from '../../../catchers';
 import { isFunction } from '../../../../helpers';
 import { CatcherRule } from '../base';
 
+/** Selects {@link AccessorCatcher} when the descriptor carries a getter. */
 export class AccessorCatcherRule<
   T extends object,
   K extends keyof T,

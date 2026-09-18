@@ -1,6 +1,7 @@
 import type { TryCatchPrepare } from '../interfaces';
 import { ErrorCatcher } from '../base';
 
+/** Catcher for methods, wrapping `descriptor.value`. */
 export class MethodCatcher<T extends object, K extends keyof T> extends ErrorCatcher<
   T,
   K

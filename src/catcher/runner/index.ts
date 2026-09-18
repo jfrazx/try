@@ -4,6 +4,7 @@ import type { TryAllOptions } from '../../options';
 import { OptionsContainer } from '../../options';
 import type { CatchError } from '../interfaces';
 
+/** Entry point for building a catcher: merges the options, then picks the catcher matching the member kind. */
 export abstract class CatchRunner {
   static for<T extends object, K extends keyof T>(
     target: T,

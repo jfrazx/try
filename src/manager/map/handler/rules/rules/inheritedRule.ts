@@ -2,6 +2,7 @@ import { isSymbol } from '../../../../../helpers';
 import { ShouldHandleTryMapRule } from '../base';
 import type { TryMap } from '../../../map';
 
+/** Lets symbol access through untouched, so things like `Symbol.iterator` are not mistaken for try members. */
 export class InheritedRule<
   T extends TryMap<T, K>,
   K extends keyof T,

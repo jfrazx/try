@@ -2,26 +2,36 @@ import type { TryOptions } from '../interfaces';
 import { TryClassWrapper } from '../wrapper';
 
 /**
- * @description Decorator used in tandem with TryCatch decorator for methods and accessors that will catch errors only when called through a 'try' map
+ * Marks a method or accessor as catchable, for use with {@link TryCatch}.
  *
- * @template T
- * @param {TryOptions} [tryOptions={}]
- * @returns
+ * The decorated member is unchanged when called directly — it still throws.
+ * Calling it through the `.try` map is what applies the catching. A caught
+ * error yields `null` unless `returnOnError` says otherwise; an `async` member
+ * yields a `Promise` of that value, so `await` it before comparing.
+ *
+ * @template T - the class owning the decorated member
+ * @param tryOptions - per-member catching behavior, overriding the class defaults
+ * @returns a method decorator that registers the member with its class
  *
  * @example
- * ```typescript
- * @TryCatch()
+ * ```ts
+ * import { TryCatch, Try, type TryCatchExtension } from '@status/try';
+ *
+ * interface Example extends TryCatchExtension<Example, 'method'> {}
+ *
+ * @TryCatch<Example>()
  * class Example {
  *   @Try()
- *   method() {
- *    throw new Error('Error');
+ *   method(): string {
+ *     throw new Error('Error');
  *   }
  * }
  *
  * const example = new Example();
- * example.method(); // throws error
  *
- * example.try.method(); // returns null
+ * example.method(); // throws Error('Error')
+ * example.try.method(); // null
+ * ```
  */
 export function Try<T extends object>(tryOptions: TryOptions = {}) {
   return <K extends keyof T>(

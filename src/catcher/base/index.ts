@@ -1,6 +1,7 @@
 import type { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
 import type { OptionsContainer } from '../../options';
 
+/** Runs a decorated member inside try/catch and applies the resolved options to whatever it throws or returns. */
 export abstract class ErrorCatcher<
   T extends object,
   K extends keyof T,

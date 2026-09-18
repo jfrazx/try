@@ -2,6 +2,7 @@ import type { Tryable } from '../../interfaces';
 import type { TryManager } from '../../manager';
 import { HandlerRuleRunner } from '../rules';
 
+/** Proxy around each instance: intercepts `.try` and `getTryManager`, and passes everything else through. */
 export class TryHandler<
   T extends object,
   K extends keyof T,

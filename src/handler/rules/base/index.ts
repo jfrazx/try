@@ -1,6 +1,7 @@
 import type { Tryable, ShouldHandle } from '../../../interfaces';
 import type { TryHandler } from '../../handler';
 
+/** Base for the instance access rules: each decides whether it owns a property, then resolves it. */
 export abstract class ShouldHandleRule<
   T extends object,
   K extends keyof T,
