@@ -18,11 +18,14 @@ export interface CatchError<
   K extends keyof T,
 > extends CatchPrepare<T, K> {
   alwaysCatch: boolean;
-  catchError(...args: any[]): T[K];
+  catchError(receiver: T, ...args: any[]): T[K];
   modifyDescriptor(): TypedPropertyDescriptor<T[K]>;
 }
 
-/** Internal. The minimum `.try` needs: hand back something callable or already resolved. */
+/**
+ * Internal. The minimum `.try` needs: hand back something callable or already
+ * resolved, bound to the instance the call arrived on.
+ */
 export interface CatchPrepare<T extends object, K extends keyof T> {
-  prepareRun(property?: K | string): TryCatchPrepare<T, K>;
+  prepareRun(receiver: T, property?: K | string): TryCatchPrepare<T, K>;
 }

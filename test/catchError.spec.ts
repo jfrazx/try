@@ -175,4 +175,17 @@ describe('CatchError', () => {
       expect(runOnError).toHaveBeenCalledTimes(1);
     });
   });
+  describe('the wrapper it installs', () => {
+    it('should keep the name and arity of the member it wraps', () => {
+      class Sum {
+        @CatchError()
+        add(a: number, b: number): number {
+          return a + b;
+        }
+      }
+
+      expect(Sum.prototype.add.name).toBe('add');
+      expect(Sum.prototype.add).toHaveLength(2);
+    });
+  });
 });

@@ -24,16 +24,10 @@ export class TryMap<T extends object, K extends keyof T> {
 
   addToTryMap(property: K, catcher: CatchError<T, K>): void {
     this.propertyMap.set(property, catcher);
-
-    catcher.modifyDescriptor();
   }
 
   hasPropertyInTryMap(property: K): boolean {
     return this.propertyMap.has(property);
-  }
-
-  hasNotBeenRegisteredInTryMap(property: K): boolean {
-    return !this.hasPropertyInTryMap(property);
   }
 
   getTryCatcher(property: K): CatchPrepare<T, K> {

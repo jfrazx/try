@@ -9,11 +9,6 @@ import { CatchRunner } from '../catcher';
  * `null` unless `returnOnError` says otherwise; an `async` member yields a
  * `Promise` of that value.
  *
- * Note that the decorated member currently runs with `this` bound to the
- * prototype rather than the instance, so a member reading instance state sees
- * `undefined`. See
- * {@link https://github.com/jfrazx/try/issues/33 | issue #33}.
- *
  * @template T - the class owning the decorated member
  * @param tryOptions - catching behavior for this member
  * @returns a method decorator that replaces the member's descriptor
@@ -42,11 +37,11 @@ import { CatchRunner } from '../catcher';
  */
 export function CatchError<T extends object>(tryOptions: TryOptions = {}) {
   return <K extends keyof T>(
-    target: T,
+    _target: T,
     property: string | K,
     descriptor: PropertyDescriptor,
   ): PropertyDescriptor => {
-    const catcher = CatchRunner.for(target, property, descriptor, {
+    const catcher = CatchRunner.for<T, K>(property, descriptor, {
       tryOptions: { ...tryOptions, alwaysCatch: true },
     });
 

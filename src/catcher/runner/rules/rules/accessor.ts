@@ -14,9 +14,8 @@ export class AccessorCatcherRule<
 
   handle(): CatchError<T, K> {
     return new AccessorCatcher(
-      this.target,
-      this.property,
-      this.descriptor,
+      this.property as K,
+      this.descriptor as TypedPropertyDescriptor<T[K]>,
       this.options,
     );
   }

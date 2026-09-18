@@ -32,11 +32,15 @@ enabled:
 
 The library offers a choice about **when** a method is allowed to fail.
 
-| Decorator       | Needs `@TryCatch` on the class | Catches                                               |
-| --------------- | ------------------------------ | ----------------------------------------------------- |
-| `@Try()`        | yes                            | only when called through `.try`                       |
-| `@Catch()`      | yes                            | only when called through `.try` — [see below](#catch) |
-| `@CatchError()` | no                             | always                                                |
+| Decorator       | Needs `@TryCatch` on the class | Catches                                            |
+| --------------- | ------------------------------ | -------------------------------------------------- |
+| `@Try()`        | yes                            | only when called through `.try`                    |
+| `@Catch()`      | yes                            | always, and listed on `.try` — [see below](#catch) |
+| `@CatchError()` | no                             | always                                             |
+
+A member takes one of these, not several. Two on the same member is a
+contradiction rather than a combination, so it is rejected as the class is
+defined.
 
 A caught error produces `null` unless you say otherwise.
 
@@ -75,12 +79,8 @@ that line is doing and how it scales past one method.
 
 ### `@Catch`
 
-`@Catch()` is intended as the middle ground — registered on the class like
-`@Try()`, but catching on every call rather than only through `.try`.
-
-**It does not currently do that.** As shipped it is indistinguishable from
-`@Try()`: calling the method normally still throws, and only `.try` catches.
-See [#30](https://github.com/jfrazx/try/issues/30) for the cause.
+`@Catch()` is the middle ground — registered on the class like `@Try()`, but
+catching on every call rather than only through `.try`.
 
 ```ts
 import { TryCatch, Catch, type TryCatchExtension } from '@status/try';
@@ -97,12 +97,22 @@ class Config {
 
 const config = new Config();
 
-config.parse('not json'); // throws -- despite the name
+config.parse('not json'); // null
 config.try.parse('not json'); // null
+config.try.parse('{"a":"b"}'); // { a: 'b' }
 ```
 
-Until that is resolved, reach for `@CatchError()` when you want a method that
-always catches, and treat `@Catch()` as a synonym for `@Try()`.
+Reach for it when every caller wants the fallback, but you still want the
+member listed on `.try` alongside the rest of the class. When the class has no
+other catchable members, `@CatchError()` is the lighter choice — it needs no
+class decorator.
+
+Options resolve identically on both paths: a `runOnError` passed to
+`@TryCatch()` applies to a direct call just as it does through `.try`.
+
+Catching is in place from the moment the class is defined, so it applies before
+anything has been constructed, to a reference taken off the prototype, and to a
+call the constructor itself makes.
 
 ### `@CatchError` — standalone
 
@@ -316,20 +326,20 @@ where an intersection reads better than a merged interface.
 
 ## Exports
 
-| Export              |                                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| `TryCatch`          | class decorator; installs the `.try` map                                                              |
-| `Try`               | catches only through `.try`                                                                           |
-| `Catch`             | intended as always-catch; currently behaves as `Try` ([#30](https://github.com/jfrazx/try/issues/30)) |
-| `CatchError`        | always catches; standalone                                                                            |
-| `TryOptions`        | `returnOnError`, `runOnError`                                                                         |
-| `TryCatchOptions`   | `runOnError`                                                                                          |
-| `TryError`          | what `runOnError` receives                                                                            |
-| `TryCatchExtension` | the `.try` + `getTryManager()` shape                                                                  |
-| `Tryable`           | `T & TryCatchExtension<T, K>`                                                                         |
-| `TryMethods`        | `getTryManager()`                                                                                     |
-| `TryProperties`     | the shape of the `.try` map                                                                           |
-| `TryManager`        | what `getTryManager()` returns                                                                        |
+| Export              |                                                            |
+| ------------------- | ---------------------------------------------------------- |
+| `TryCatch`          | class decorator; installs the `.try` map                   |
+| `Try`               | catches only through `.try`                                |
+| `Catch`             | always catches; registered on the class, so also on `.try` |
+| `CatchError`        | always catches; standalone                                 |
+| `TryOptions`        | `returnOnError`, `runOnError`                              |
+| `TryCatchOptions`   | `runOnError`                                               |
+| `TryError`          | what `runOnError` receives                                 |
+| `TryCatchExtension` | the `.try` + `getTryManager()` shape                       |
+| `Tryable`           | `T & TryCatchExtension<T, K>`                              |
+| `TryMethods`        | `getTryManager()`                                          |
+| `TryProperties`     | the shape of the `.try` map                                |
+| `TryManager`        | what `getTryManager()` returns                             |
 
 Generated API documentation lives in `docs/api` after `npm run docs`.
 

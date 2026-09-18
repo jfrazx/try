@@ -219,6 +219,12 @@ export interface TryOptions extends SharedOptions {
 export interface DecoratedEventMap<T extends object, K extends keyof T> {
   descriptor: TypedPropertyDescriptor<T[K]>;
   options: RegistrationOptions;
+  /**
+   * The prototype the decorator was applied to. A member that always catches
+   * is installed here rather than on the prototype of whatever subclass
+   * happened to be constructed first.
+   */
+  prototype: object;
   property: K;
 }
 

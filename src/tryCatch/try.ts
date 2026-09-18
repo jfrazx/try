@@ -41,6 +41,7 @@ export function Try<T extends object>(tryOptions: TryOptions = {}) {
   ): void => {
     return TryClassWrapper.registerDecorator(target.constructor, {
       property,
+      prototype: target,
       descriptor,
       options: { ...tryOptions, alwaysCatch: false },
     });
