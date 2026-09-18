@@ -73,14 +73,6 @@ The `interface` line is not decoration. `.try` is installed at runtime, so
 TypeScript needs to be told it exists — see [TypeScript](#typescript) for what
 that line is doing and how it scales past one method.
 
-> **Arguments do not survive the `.try` map.** They currently arrive at the
-> method as a single array rather than as separate parameters, so
-> `instance.try.method(a, b)` is received as `method([a, b])` —
-> see [#31](https://github.com/jfrazx/try/issues/31). Zero-argument members are
-> unaffected, and the single-string call above happens to survive it because a
-> one-element array stringifies to the same value. Until that is fixed, `.try`
-> is only dependable for members that take no arguments.
-
 ### `@Catch`
 
 `@Catch()` is intended as the middle ground — registered on the class like
@@ -226,12 +218,8 @@ It receives a `TryError`:
 | --------------- | -------- | -------------------------------------- |
 | `error`         | `Error`  | what was thrown                        |
 | `property`      | `string` | the method or accessor that threw      |
-| `arguments`     | `any[]`  | the arguments it was called with\*     |
+| `arguments`     | `any[]`  | the arguments it was called with       |
 | `returnOnError` | `any`    | the configured fallback, for reference |
-
-\* Accurate for `@CatchError()`. Through the `.try` map the arguments are
-nested one level deeper — `["a", "b"]` arrives as `[["a", "b"]]` — for the same
-reason described in [#31](https://github.com/jfrazx/try/issues/31).
 
 **A value returned from `runOnError` wins.** The resolution order is the
 callback's return, then `returnOnError`, then `null` — so returning nothing (or
@@ -341,6 +329,7 @@ where an intersection reads better than a merged interface.
 | `Tryable`           | `T & TryCatchExtension<T, K>`                                                                         |
 | `TryMethods`        | `getTryManager()`                                                                                     |
 | `TryProperties`     | the shape of the `.try` map                                                                           |
+| `TryManager`        | what `getTryManager()` returns                                                                        |
 
 Generated API documentation lives in `docs/api` after `npm run docs`.
 

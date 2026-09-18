@@ -1,9 +1,11 @@
 import type { Tryable, ShouldHandle } from '../../../interfaces';
 import type { TryHandler } from '../../handler';
 
-export abstract class ShouldHandleRule<T extends object, K extends keyof T>
-  implements ShouldHandle
-{
+/** Base for the instance access rules: each decides whether it owns a property, then resolves it. */
+export abstract class ShouldHandleRule<
+  T extends object,
+  K extends keyof T,
+> implements ShouldHandle {
   constructor(
     protected readonly handler: TryHandler<T, K>,
     protected readonly target: T,

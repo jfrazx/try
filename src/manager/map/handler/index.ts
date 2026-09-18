@@ -2,9 +2,11 @@ import type { TryProperties } from '../../../interfaces';
 import { TryHandlerRuleRunner } from './rules';
 import { TryMap } from '../map';
 
-export class TryMapHandler<T extends object, K extends keyof T>
-  implements ProxyHandler<TryMap<T, K>>
-{
+/** Proxy in front of {@link TryMap} so `.try.foo` resolves through the rule chain rather than plain property access. */
+export class TryMapHandler<
+  T extends object,
+  K extends keyof T,
+> implements ProxyHandler<TryMap<T, K>> {
   get(target: TryMap<T, K>, property: string) {
     return TryHandlerRuleRunner.fetchRule(target, property).handle();
   }

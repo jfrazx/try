@@ -1,9 +1,11 @@
 import type { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
 import type { OptionsContainer } from '../../options';
 
-export abstract class ErrorCatcher<T extends object, K extends keyof T>
-  implements CatchError<T, K>
-{
+/** Runs a decorated member inside try/catch and applies the resolved options to whatever it throws or returns. */
+export abstract class ErrorCatcher<
+  T extends object,
+  K extends keyof T,
+> implements CatchError<T, K> {
   protected abstract original: Function;
 
   constructor(

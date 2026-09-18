@@ -3,6 +3,7 @@ import { MethodCatcher } from '../../../catchers';
 import { isFunction } from '../../../../helpers';
 import { CatcherRule } from '../base';
 
+/** Selects {@link MethodCatcher} when the descriptor carries a function value. */
 export class MethodCatcherRule<
   T extends object,
   K extends keyof T,

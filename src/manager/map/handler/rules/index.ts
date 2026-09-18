@@ -1,6 +1,7 @@
 import type { ShouldHandle } from '../../../../interfaces';
 import { TryHandleConstructor, rules } from './rules';
 
+/** Picks the first `.try` rule that claims the property. */
 export abstract class TryHandlerRuleRunner {
   static fetchRule<T extends object, K extends keyof T>(
     target: T,

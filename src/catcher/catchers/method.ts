@@ -1,6 +1,7 @@
 import type { TryCatchPrepare } from '../interfaces';
 import { ErrorCatcher } from '../base';
 
+/** Catcher for methods, wrapping `descriptor.value`. */
 export class MethodCatcher<T extends object, K extends keyof T> extends ErrorCatcher<
   T,
   K
@@ -16,6 +17,6 @@ export class MethodCatcher<T extends object, K extends keyof T> extends ErrorCat
   }
 
   prepareRun(): TryCatchPrepare<T, K> {
-    return (...args: any[]) => this.catchError(args);
+    return (...args: any[]) => this.catchError(...args);
   }
 }

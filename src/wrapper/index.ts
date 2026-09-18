@@ -3,22 +3,20 @@ import { Default, wrapDefaults } from '@status/defaults';
 import { TryHandler } from '../handler';
 import { TryManager } from '../manager';
 
+/** Internal. The constructor shape `@TryCatch` accepts and returns, so the wrapped class stays newable. */
 export interface TryConstruct<T extends object> {
   new (...args: any[]): T;
 }
 
 /**
- * @description Proxy handler for catching and managing errors for properties and methods of a class
- *
- * @export
- * @class TryClassWrapper
- * @implements {ProxyHandler<T>}
- * @template T
- * @template K
+ * Proxy handler behind `@TryCatch`. Holds each class's manager and the
+ * decorators that registered before construction, then wires them together
+ * whenever the class is instantiated.
  */
-export class TryClassWrapper<T extends Function, K extends keyof T>
-  implements ProxyHandler<T>
-{
+export class TryClassWrapper<
+  T extends Function,
+  K extends keyof T,
+> implements ProxyHandler<T> {
   private static managerMap = new Map<Function, TryManager<any, any>>();
   private static decoratorMap: Default<
     Map<Function, DecoratedEventMap<any, any>[]>

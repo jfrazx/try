@@ -2,6 +2,7 @@ import type { TryManager } from '../../../manager';
 import { ShouldHandleRule } from '../base';
 import { Handle } from '../interfaces';
 
+/** Serves `getTryManager`, returning a function so callers invoke it like a method. */
 export class TryManagerRule<
   T extends object,
   K extends keyof T,
