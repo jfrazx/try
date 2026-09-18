@@ -155,11 +155,7 @@ export interface TryError {
   error: Error;
   /** Name of the member that threw. */
   property: string;
-  /**
-   * Arguments the member was called with. Through the `.try` map they
-   * currently arrive nested in a single array — see
-   * {@link https://github.com/jfrazx/try/issues/31 | issue #31}.
-   */
+  /** Arguments the member was called with, in the order they were passed. */
   arguments: any[];
   /** The configured fallback, before `runOnError` has had its chance to replace it. */
   returnOnError: any;
