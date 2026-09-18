@@ -16,7 +16,7 @@ export class MethodCatcher<T extends object, K extends keyof T> extends ErrorCat
     return descriptor;
   }
 
-  prepareRun(): TryCatchPrepare<T, K> {
-    return (...args: any[]) => this.catchError(...args);
+  prepareRun(receiver: T): TryCatchPrepare<T, K> {
+    return (...args: any[]) => this.catchError(receiver, ...args);
   }
 }

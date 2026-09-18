@@ -27,21 +27,33 @@ export class TryClassWrapper<
     wrap: new Map<Function, DecoratedEventMap<any, any>[]>(),
   });
 
+  /**
+   * Registers the decorated members as the class is defined, not as it is
+   * constructed.
+   *
+   * Member decorators run before the class decorator, so by the time this runs
+   * every member has already registered and nothing is left to wait for. Doing
+   * it here is what makes a member that always catches catch from the moment
+   * the class exists: before the first instance, through a reference captured
+   * before it, and when the constructor itself calls the member.
+   */
   constructor(target: T, options: TryCatchOptions) {
     const manager = new TryManager<T, K>(options);
+
+    manager.registerTryCatchDescriptors(
+      TryClassWrapper.retrieveDecoratorMap(target),
+    );
 
     TryClassWrapper.managerMap.set(target, manager);
   }
 
   construct(target: T, args: any[], newTarget: Function): T {
     const manager: TryManager<T, K> = TryClassWrapper.managerMap.get(target)!;
-    const decoratorMap = TryClassWrapper.retrieveDecoratorMap(target);
-    const wrappedInstance = TryHandler.wrap<T, K>(
+
+    return TryHandler.wrap<T, K>(
       Reflect.construct(target, args, newTarget),
       manager,
     );
-
-    return manager.registerTryCatchDescriptors(wrappedInstance, decoratorMap);
   }
 
   static wrap<T extends Function, K extends keyof T>(

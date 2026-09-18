@@ -10,16 +10,18 @@ describe('Try', () => {
 
   describe('Standard', () => {
     it('should throw an error when attempting to catch a property', () => {
-      @TryCatch<Testable>()
-      class Testable {
-        // @ts-ignore
-        @Try<Testable>()
-        failure = 'this will throw an error';
-      }
-
+      // the class is defined inside the assertion: registration happens as the
+      // class is defined, so an unsupported member is rejected there rather
+      // than waiting for something to construct it
       expect(() => {
-        const test = new Testable();
-        console.log(test.failure);
+        @TryCatch<Testable>()
+        class Testable {
+          // @ts-ignore
+          @Try<Testable>()
+          failure = 'this will throw an error';
+        }
+
+        return Testable;
       }).toThrow(
         `[TryError]: Only methods and accessors can be captured. Property 'failure' not supported`,
       );

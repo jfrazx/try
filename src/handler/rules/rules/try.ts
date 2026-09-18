@@ -12,6 +12,6 @@ export class TryRule<T extends object, K extends keyof T> extends ShouldHandleRu
   }
 
   handle(): TryProperties<T, K> {
-    return this.handler.getTryManager().getTryMap();
+    return this.handler.getTryMap(this.receiver);
   }
 }

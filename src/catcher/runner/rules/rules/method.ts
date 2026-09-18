@@ -14,9 +14,8 @@ export class MethodCatcherRule<
 
   handle(): CatchError<T, K> {
     return new MethodCatcher(
-      this.target,
-      this.property,
-      this.descriptor,
+      this.property as K,
+      this.descriptor as TypedPropertyDescriptor<T[K]>,
       this.options,
     );
   }

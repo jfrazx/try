@@ -16,7 +16,7 @@ export class AccessorCatcher<
     return descriptor;
   }
 
-  prepareRun(): TryCatchPrepare<T, K> {
-    return this.catchError();
+  prepareRun(receiver: T): TryCatchPrepare<T, K> {
+    return this.catchError(receiver);
   }
 }
