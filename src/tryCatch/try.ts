@@ -1,5 +1,5 @@
 import type { TryOptions } from '../interfaces';
-import { TryClassWrapper } from '../wrapper';
+import { registerMember } from './register';
 
 /**
  * Marks a method or accessor as catchable, for use with {@link TryCatch}.
@@ -37,12 +37,11 @@ export function Try<T extends object>(tryOptions: TryOptions = {}) {
   return <K extends keyof T>(
     target: T,
     property: string | K,
-    descriptor: PropertyDescriptor,
+    _descriptor: PropertyDescriptor,
   ): void => {
-    return TryClassWrapper.registerDecorator(target.constructor, {
-      property,
-      descriptor,
-      options: { ...tryOptions, alwaysCatch: false },
+    return registerMember('Try', target, property, {
+      ...tryOptions,
+      alwaysCatch: false,
     });
   };
 }

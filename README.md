@@ -32,11 +32,15 @@ enabled:
 
 The library offers a choice about **when** a method is allowed to fail.
 
-| Decorator       | Needs `@TryCatch` on the class | Catches                                               |
-| --------------- | ------------------------------ | ----------------------------------------------------- |
-| `@Try()`        | yes                            | only when called through `.try`                       |
-| `@Catch()`      | yes                            | only when called through `.try` — [see below](#catch) |
-| `@CatchError()` | no                             | always                                                |
+| Decorator       | Needs `@TryCatch` on the class | Catches                                    |
+| --------------- | ------------------------------ | ------------------------------------------ |
+| `@Try()`        | yes                            | only when called through `.try`            |
+| `@Catch()`      | yes                            | always — direct calls too, not only `.try` |
+| `@CatchError()` | no                             | always                                     |
+
+A member takes one of these, not several. Two on the same member is a
+contradiction rather than a combination, so it is rejected as the class is
+defined.
 
 A caught error produces `null` unless you say otherwise.
 
@@ -75,12 +79,8 @@ that line is doing and how it scales past one method.
 
 ### `@Catch`
 
-`@Catch()` is intended as the middle ground — registered on the class like
-`@Try()`, but catching on every call rather than only through `.try`.
-
-**It does not currently do that.** As shipped it is indistinguishable from
-`@Try()`: calling the method normally still throws, and only `.try` catches.
-See [#30](https://github.com/jfrazx/try/issues/30) for the cause.
+`@Catch()` always catches. Every call to the member is covered — a direct call
+just as much as one through `.try`.
 
 ```ts
 import { TryCatch, Catch, type TryCatchExtension } from '@status/try';
@@ -97,12 +97,26 @@ class Config {
 
 const config = new Config();
 
-config.parse('not json'); // throws -- despite the name
+config.parse('not json'); // null
 config.try.parse('not json'); // null
+config.try.parse('{"a":"b"}'); // { a: 'b' }
 ```
 
-Until that is resolved, reach for `@CatchError()` when you want a method that
-always catches, and treat `@Catch()` as a synonym for `@Try()`.
+It does need `@TryCatch()` on the class: the class decorator is what builds the
+registry that installs the catching. `.try` is an additional way to reach the
+member, never the gate. Without the class decorator the member is left exactly
+as declared, and `@CatchError()` is the decorator for that case — it catches
+every call and needs nothing on the class.
+
+Reach for `@Catch()` when every caller wants the fallback and you also want the
+member listed on `.try` alongside the rest of the class.
+
+Options resolve identically on both paths: a `runOnError` passed to
+`@TryCatch()` applies to a direct call just as it does through `.try`.
+
+Catching is in place from the moment the class is defined, so it applies before
+anything has been constructed, to a reference taken off the prototype, and to a
+call the constructor itself makes.
 
 ### `@CatchError` — standalone
 
@@ -150,7 +164,8 @@ await remote.config; // null
 await remote.load(); // null
 ```
 
-Only methods and accessors can be decorated. A plain property is rejected:
+Only methods and getters can be decorated, and anything else is rejected as the
+class is defined rather than on the first construction:
 
 ```ts
 import { TryCatch, Try } from '@status/try';
@@ -161,11 +176,16 @@ class Broken {
   @Try<Broken>()
   value = 'nope';
 }
-
-new Broken();
 // [TryError]: Only methods and accessors can be captured.
 // Property 'value' not supported
 ```
+
+A setter with no getter is rejected the same way. Catching replaces what a
+member hands back, and a setter hands back nothing.
+
+Members must also be instance members. A static is handed the constructor rather
+than the prototype, so it never reaches the registry `@TryCatch()` builds —
+`@CatchError()` is the one to reach for there, since it needs no registry.
 
 ## Options
 
@@ -272,6 +292,121 @@ class Config {
 Note that `@TryCatch()` takes **only** `runOnError`. `returnOnError` is a
 per-member decision and has no class-wide form.
 
+## Subclassing
+
+A subclass inherits the catchable members of the class it extends. Decorate the
+subclass too and its `.try` answers for both — what it declares, and what it
+inherited.
+
+```ts
+import { TryCatch, Catch, type TryCatchExtension, type Tryable } from '@status/try';
+
+interface Base extends TryCatchExtension<Base, 'load'> {}
+
+@TryCatch<Base>()
+class Base {
+  @Catch()
+  load(): string {
+    throw new Error('nope');
+  }
+}
+
+@TryCatch<Sub>()
+class Sub extends Base {
+  @Catch({ returnOnError: 'saved' })
+  save(): string {
+    throw new Error('nope');
+  }
+}
+
+const sub = new Sub() as Tryable<Sub, 'load' | 'save'>;
+
+sub.try.load(); // null, inherited from Base
+sub.try.save(); // 'saved'
+```
+
+An inherited member keeps the options it was declared under, the base class's
+`@TryCatch` defaults included. It is the same catcher rather than a rebuilt
+one, so extending a class never changes how its members behave.
+
+The class in between need not be decorated. A decorated class inherits from the
+nearest decorated class above it, however many undecorated ones stand between.
+
+### Overrides
+
+A member the subclass declares is the subclass's own. Decorate it and it gets
+its own catcher, which takes precedence over the inherited one.
+
+Override it **without** a decorator and it is not catchable. `.try` says so
+rather than quietly running the implementation you replaced. An override
+anywhere along the way counts, including one on an undecorated class in
+between:
+
+```ts
+@TryCatch<Sub>()
+class Sub extends Base {
+  load(): string {
+    throw new Error('nope');
+  }
+}
+
+new Sub().load(); // Error: nope
+
+(new Sub() as any).try.load();
+// [TryError]: Property 'load' does not exist in TryMap
+```
+
+`super` reaches the base's member as the base left it, which differs by
+decorator. `@Try` leaves the member alone, so `super` gets the original and it
+throws. `@Catch` replaced the member, so `super` gets the catcher:
+
+```ts
+@TryCatch<Base>()
+class Base {
+  @Try({ returnOnError: 'tried' })
+  tried(): string {
+    throw new Error('nope');
+  }
+
+  @Catch({ returnOnError: 'caught' })
+  caught(): string {
+    throw new Error('nope');
+  }
+}
+
+@TryCatch<Sub>()
+class Sub extends Base {
+  tried(): string {
+    return super.tried(); // throws Error('nope')
+  }
+
+  caught(): string {
+    return super.caught(); // 'caught'
+  }
+}
+```
+
+There is no way to reach the undecorated original of a `@Catch` member. Always
+catching is what `@Catch` means, and it holds for a subclass calling `super` as
+much as for anything else.
+
+### Typing a subclass
+
+A subclass cannot merge an interface of its own. It already inherits the base's
+`try`, and a second declaration of a different type is rejected:
+
+```ts
+interface Sub extends TryCatchExtension<Sub, 'save'> {}
+// TS2320: Interface 'Sub' cannot simultaneously extend types 'Base' and
+// 'TryCatchExtension<Sub, "save">'.
+```
+
+Use `Tryable<T, K>` instead, listing what the subclass exposes:
+
+```ts
+const sub = new Sub() as Tryable<Sub, 'load' | 'save'>;
+```
+
 ## TypeScript
 
 `.try` and `getTryManager()` are installed at runtime, so the class declaration
@@ -316,20 +451,20 @@ where an intersection reads better than a merged interface.
 
 ## Exports
 
-| Export              |                                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| `TryCatch`          | class decorator; installs the `.try` map                                                              |
-| `Try`               | catches only through `.try`                                                                           |
-| `Catch`             | intended as always-catch; currently behaves as `Try` ([#30](https://github.com/jfrazx/try/issues/30)) |
-| `CatchError`        | always catches; standalone                                                                            |
-| `TryOptions`        | `returnOnError`, `runOnError`                                                                         |
-| `TryCatchOptions`   | `runOnError`                                                                                          |
-| `TryError`          | what `runOnError` receives                                                                            |
-| `TryCatchExtension` | the `.try` + `getTryManager()` shape                                                                  |
-| `Tryable`           | `T & TryCatchExtension<T, K>`                                                                         |
-| `TryMethods`        | `getTryManager()`                                                                                     |
-| `TryProperties`     | the shape of the `.try` map                                                                           |
-| `TryManager`        | what `getTryManager()` returns                                                                        |
+| Export              |                                                            |
+| ------------------- | ---------------------------------------------------------- |
+| `TryCatch`          | class decorator; installs the `.try` map                   |
+| `Try`               | catches only through `.try`                                |
+| `Catch`             | always catches; registered on the class, so also on `.try` |
+| `CatchError`        | always catches; standalone                                 |
+| `TryOptions`        | `returnOnError`, `runOnError`                              |
+| `TryCatchOptions`   | `runOnError`                                               |
+| `TryError`          | what `runOnError` receives                                 |
+| `TryCatchExtension` | the `.try` + `getTryManager()` shape                       |
+| `Tryable`           | `T & TryCatchExtension<T, K>`                              |
+| `TryMethods`        | `getTryManager()`                                          |
+| `TryProperties`     | the shape of the `.try` map                                |
+| `TryManager`        | what `getTryManager()` returns                             |
 
 Generated API documentation lives in `docs/api` after `npm run docs`.
 

@@ -9,14 +9,13 @@ export class MethodCatcherRule<
   K extends keyof T,
 > extends CatcherRule<T, K> {
   shouldHandle(): boolean {
-    return isFunction(this.descriptor.value);
+    return isFunction(this.descriptor?.value);
   }
 
   handle(): CatchError<T, K> {
     return new MethodCatcher(
-      this.target,
-      this.property,
-      this.descriptor,
+      this.property as K,
+      this.descriptor as TypedPropertyDescriptor<T[K]>,
       this.options,
     );
   }

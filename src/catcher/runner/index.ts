@@ -1,25 +1,27 @@
 import type { ShouldHandle } from '../../interfaces';
-import { CatcherConstructor, rules } from './rules';
+import { rules } from './rules';
 import type { TryAllOptions } from '../../options';
 import { OptionsContainer } from '../../options';
 import type { CatchError } from '../interfaces';
 
-/** Entry point for building a catcher: merges the options, then picks the catcher matching the member kind. */
+/**
+ * Entry point for building a catcher: merges the options, then picks the
+ * catcher matching the member kind.
+ *
+ * A catcher is stateless with respect to the object it runs against — the
+ * receiver arrives per call — so one catcher is shared by every instance.
+ */
 export abstract class CatchRunner {
   static for<T extends object, K extends keyof T>(
-    target: T,
     property: string | K,
-    descriptor: TypedPropertyDescriptor<T[K]>,
+    descriptor: PropertyDescriptor | undefined,
     combinedOptions: TryAllOptions,
   ): CatchError<T, K> {
     const options = new OptionsContainer(combinedOptions);
 
     return rules
-      .map(
-        (Rule: CatcherConstructor<any, any>) =>
-          new Rule(target, property as K, descriptor, options),
-      )
+      .map((Rule) => new Rule(property as string, descriptor, options))
       .find((rule: ShouldHandle) => rule.shouldHandle())!
-      .handle();
+      .handle() as CatchError<T, K>;
   }
 }
