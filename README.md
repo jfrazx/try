@@ -329,13 +329,18 @@ An inherited member keeps the options it was declared under, the base class's
 `@TryCatch` defaults included. It is the same catcher rather than a rebuilt
 one, so extending a class never changes how its members behave.
 
+The class in between need not be decorated. A decorated class inherits from the
+nearest decorated class above it, however many undecorated ones stand between.
+
 ### Overrides
 
 A member the subclass declares is the subclass's own. Decorate it and it gets
 its own catcher, which takes precedence over the inherited one.
 
 Override it **without** a decorator and it is not catchable. `.try` says so
-rather than quietly running the implementation you replaced:
+rather than quietly running the implementation you replaced. An override
+anywhere along the way counts, including one on an undecorated class in
+between:
 
 ```ts
 @TryCatch<Sub>()

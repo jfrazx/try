@@ -1,6 +1,6 @@
 import type { TryCatchOptions, DecoratedEventMap } from '../interfaces';
 import { TryHandler } from '../handler';
-import { TryManager } from '../manager';
+import { TryManager, type TryInheritance } from '../manager';
 
 /** Internal. The constructor shape `@TryCatch` accepts and returns, so the wrapped class stays newable. */
 export interface TryConstruct<T extends object> {
@@ -40,10 +40,8 @@ export class TryClassWrapper<
    * the class exists: before the first instance, through a reference captured
    * before it, and when the constructor itself calls the member.
    *
-   * A decorated base class is picked up afterwards, so its members answer on
-   * this class's `.try` too. The class this one extends is its own prototype,
-   * and a decorated one has left its manager under that key — under the proxy
-   * key when it was decorated, since that is what `extends` was given.
+   * A decorated ancestor is picked up afterwards, so its members answer on this
+   * class's `.try` too.
    *
    * The queue is dropped once read. It has served its only purpose, and holding
    * it would keep every registration alive for as long as the class is.
@@ -55,10 +53,7 @@ export class TryClassWrapper<
       TryClassWrapper.retrieveDecoratorMap(target),
     );
 
-    this.manager.inherit(
-      TryClassWrapper.managerMap.get(Object.getPrototypeOf(target)),
-      target.prototype,
-    );
+    this.manager.inherit(TryClassWrapper.inheritedFrom(target), target.prototype);
 
     TryClassWrapper.decoratorMap.delete(target);
     TryClassWrapper.managerMap.set(target, this.manager);
@@ -117,6 +112,41 @@ export class TryClassWrapper<
     options: DecoratedEventMap<T, any>,
   ): void {
     this.retrieveDecoratorMap(klass).push(options);
+  }
+
+  /**
+   * The nearest decorated class above this one, and the prototype its members
+   * are declared on.
+   *
+   * The class a class extends is its own prototype, and a decorated one has
+   * left its manager under that key — under the proxy key, since the proxy is
+   * what `extends` was given.
+   *
+   * The whole chain is walked rather than only the class immediately above.
+   * An undecorated class standing between two decorated ones is ordinary
+   * JavaScript, and its members are inherited like any other — stopping there
+   * would leave the subclass's `.try` answering for nothing it inherited, while
+   * the members themselves still worked when called directly.
+   *
+   * Only the nearest is needed. That class did this same walk as it was
+   * defined, so its map already carries whatever it inherited from further up.
+   */
+  private static inheritedFrom<T extends Function>(
+    klass: T,
+  ): TryInheritance | undefined {
+    for (
+      let ancestor = Object.getPrototypeOf(klass);
+      ancestor;
+      ancestor = Object.getPrototypeOf(ancestor)
+    ) {
+      const manager = this.managerMap.get(ancestor);
+
+      if (manager) {
+        return { manager, prototype: ancestor.prototype };
+      }
+    }
+
+    return undefined;
   }
 
   private static retrieveDecoratorMap<T extends Function>(

@@ -170,3 +170,122 @@ describe('an undecorated subclass of a decorated class', () => {
     expect(sub.also()).toBe('also');
   });
 });
+
+/**
+ * A class standing between two decorated ones need not be decorated itself.
+ * Its members are inherited like any other, so the lookup for a decorated
+ * ancestor walks the chain rather than stopping at the class immediately above.
+ */
+describe('a decorated subclass across an undecorated class', () => {
+  interface Base extends TryCatchExtension<Base, 'tried' | 'caught' | 'shadowed'> {}
+
+  @TryCatch<Base>()
+  class Base {
+    @Try<Base>()
+    tried(): string {
+      throw new Error('tried');
+    }
+
+    @Catch<Base>({ returnOnError: 'base caught' })
+    caught(): string {
+      throw new Error('caught');
+    }
+
+    @Try<Base>({ returnOnError: 'base shadowed' })
+    shadowed(): string {
+      throw new Error('base shadowed');
+    }
+  }
+
+  class Middle extends Base {
+    shadowed(): string {
+      return 'middle shadowed';
+    }
+  }
+
+  @TryCatch<Sub>()
+  class Sub extends Middle {
+    @Catch<Sub>({ returnOnError: 'sub own' })
+    own(): string {
+      throw new Error('own');
+    }
+  }
+
+  const subject = () => new Sub() as Tryable<Sub, 'tried' | 'caught' | 'own'>;
+
+  it("should reach the decorated ancestor's @Try member", () => {
+    expect(subject().try.tried()).toBeNull();
+  });
+
+  it("should reach the decorated ancestor's @Catch member", () => {
+    expect(subject().try.caught()).toBe('base caught');
+  });
+
+  it('should keep the subclass its own members', () => {
+    expect(subject().try.own()).toBe('sub own');
+  });
+
+  /**
+   * The undecorated class in the middle overrode the member, so it is no longer
+   * the ancestor's. Inheriting the catcher anyway would leave `.try` running
+   * the implementation that was replaced.
+   */
+  it('should not answer for a member the undecorated class overrode', () => {
+    expect(() => (subject() as any).try.shadowed()).toThrow(
+      "[TryError]: Property 'shadowed' does not exist in TryMap",
+    );
+
+    expect((subject() as any).shadowed()).toBe('middle shadowed');
+  });
+});
+
+/**
+ * Only the nearest decorated ancestor is adopted. That class performed this
+ * same inheritance as it was defined, so its map already carries whatever it
+ * took from further up the chain.
+ */
+describe('three decorated classes in a chain', () => {
+  interface Top extends TryCatchExtension<Top, 'top'> {}
+
+  @TryCatch<Top>()
+  class Top {
+    @Try<Top>({ returnOnError: 'top' })
+    top(): string {
+      throw new Error('top');
+    }
+  }
+
+  @TryCatch<Middle>()
+  class Middle extends Top {
+    @Try<Middle>({ returnOnError: 'middle' })
+    middle(): string {
+      throw new Error('middle');
+    }
+  }
+
+  @TryCatch<Bottom>()
+  class Bottom extends Middle {
+    @Try<Bottom>({ returnOnError: 'bottom' })
+    bottom(): string {
+      throw new Error('bottom');
+    }
+  }
+
+  it('should reach every ancestor from the bottom', () => {
+    const bottom = new Bottom() as Tryable<Bottom, 'top' | 'middle' | 'bottom'>;
+
+    expect(bottom.try.top()).toBe('top');
+    expect(bottom.try.middle()).toBe('middle');
+    expect(bottom.try.bottom()).toBe('bottom');
+  });
+
+  it('should leave each ancestor answering for only what it knows', () => {
+    const middle = new Middle() as Tryable<Middle, 'top' | 'middle'>;
+
+    expect(middle.try.top()).toBe('top');
+    expect(middle.try.middle()).toBe('middle');
+    expect(() => (middle as any).try.bottom()).toThrow(
+      "[TryError]: Property 'bottom' does not exist in TryMap",
+    );
+  });
+});

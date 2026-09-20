@@ -472,4 +472,64 @@ describe('rejected declarations', () => {
       expect((sub as any).try.crash()).toBeNull();
     });
   });
+
+  /**
+   * Registering a member changes the class: one that always catches replaces
+   * what the prototype holds. A member further down the list can still be
+   * rejected, so nothing is committed until every member has passed.
+   *
+   * Applying the decorator by hand is what makes this reachable. Written as a
+   * decorator the throw aborts the module, and the class goes with it — called
+   * as a function, the caller still holds the class the library rejected.
+   */
+  describe('a class rejected partway through registration', () => {
+    interface Rejected {
+      first(): string;
+      second(): string;
+    }
+
+    const build = (): new () => Rejected => {
+      class Test {
+        @Catch<Test>({ returnOnError: 'caught' })
+        first(): string {
+          throw new Error('first');
+        }
+
+        @Try<Test>()
+        @Catch<Test>()
+        second(): string {
+          throw new Error('second');
+        }
+      }
+
+      return Test;
+    };
+
+    const message =
+      "[TryError]: Only one of @Try or @Catch can be applied to a member. Property 'second' is decorated more than once";
+
+    it('should leave the members it had already accepted alone', () => {
+      const Test = build();
+      const declared = Object.getOwnPropertyDescriptor(Test.prototype, 'first');
+
+      expect(() => TryCatch<Rejected>()(Test)).toThrow(message);
+
+      expect(Object.getOwnPropertyDescriptor(Test.prototype, 'first')).toEqual(
+        declared,
+      );
+      expect(() => new Test().first()).toThrow('first');
+    });
+
+    it('should not wrap a member twice when the class is offered again', () => {
+      const Test = build();
+      const declared = Object.getOwnPropertyDescriptor(Test.prototype, 'first');
+
+      expect(() => TryCatch<Rejected>()(Test)).toThrow(message);
+      expect(() => TryCatch<Rejected>()(Test)).toThrow(message);
+
+      expect(Object.getOwnPropertyDescriptor(Test.prototype, 'first')).toEqual(
+        declared,
+      );
+    });
+  });
 });
