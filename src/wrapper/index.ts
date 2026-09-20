@@ -28,6 +28,8 @@ export class TryClassWrapper<
 
   private static wrapped = new WeakSet<Function>();
 
+  private readonly manager: TryManager<T, K>;
+
   /**
    * Registers the decorated members as the class is defined, not as it is
    * constructed.
@@ -38,26 +40,34 @@ export class TryClassWrapper<
    * the class exists: before the first instance, through a reference captured
    * before it, and when the constructor itself calls the member.
    *
+   * A decorated base class is picked up afterwards, so its members answer on
+   * this class's `.try` too. The class this one extends is its own prototype,
+   * and a decorated one has left its manager under that key — under the proxy
+   * key when it was decorated, since that is what `extends` was given.
+   *
    * The queue is dropped once read. It has served its only purpose, and holding
-   * it would keep every decorated descriptor alive for as long as the class is.
+   * it would keep every registration alive for as long as the class is.
    */
   constructor(target: T, options: TryCatchOptions) {
-    const manager = new TryManager<T, K>(options);
+    this.manager = new TryManager<T, K>(options);
 
-    manager.registerTryCatchDescriptors(
+    this.manager.registerTryCatchDescriptors(
       TryClassWrapper.retrieveDecoratorMap(target),
     );
 
+    this.manager.inherit(
+      TryClassWrapper.managerMap.get(Object.getPrototypeOf(target)),
+      target.prototype,
+    );
+
     TryClassWrapper.decoratorMap.delete(target);
-    TryClassWrapper.managerMap.set(target, manager);
+    TryClassWrapper.managerMap.set(target, this.manager);
   }
 
   construct(target: T, args: any[], newTarget: Function): T {
-    const manager: TryManager<T, K> = TryClassWrapper.managerMap.get(target)!;
-
     return TryHandler.wrap<T, K>(
       Reflect.construct(target, args, newTarget),
-      manager,
+      this.manager,
     );
   }
 
@@ -68,6 +78,18 @@ export class TryClassWrapper<
    * key from the class the member decorators registered under — so the outer
    * manager reads an empty queue, and its `.try` map, the one every instance
    * actually gets, would answer for no member at all.
+   *
+   * Both the class and the proxy are recorded, because the two ways of applying
+   * it twice arrive by different doors. Stacked decorators hand the second
+   * application the proxy; calling the factory's result on the class again —
+   * `TryCatch()(Example)` twice — hands it the class. Recording only the proxy
+   * lets the second call through to build a manager from a queue the first one
+   * already emptied, and that empty manager replaces the first under the same
+   * key: every instance already handed out loses its `.try` registrations.
+   *
+   * The manager is filed under the proxy as well as the class, because the
+   * proxy is what a subclass extends and so what it finds when it looks for a
+   * decorated base.
    *
    * @throws if the class is already wrapped
    */
@@ -81,9 +103,11 @@ export class TryClassWrapper<
       );
     }
 
-    const wrapper = new Proxy(klass, new TryClassWrapper<T, K>(klass, options));
+    const handler = new TryClassWrapper<T, K>(klass, options);
+    const wrapper = new Proxy(klass, handler);
 
-    this.wrapped.add(wrapper);
+    this.wrapped.add(klass).add(wrapper);
+    this.managerMap.set(wrapper, handler.manager);
 
     return wrapper;
   }

@@ -28,6 +28,34 @@ describe('rejected declarations', () => {
     });
 
     /**
+     * Two @CatchError never reach the try map at all, so the check that catches
+     * a repeated @Try or @Catch cannot see them. The inner one answers every
+     * call, leaving the outer `returnOnError` and `runOnError` unreachable.
+     */
+    it('should reject a second @CatchError', () => {
+      const ran: string[] = [];
+
+      expect(() => {
+        class Test {
+          @CatchError<Test>({
+            returnOnError: 'outer',
+            runOnError: () => ran.push('outer'),
+          })
+          @CatchError<Test>({ returnOnError: 'inner' })
+          boom(): string {
+            throw new Error('boom');
+          }
+        }
+
+        return Test;
+      }).toThrow(
+        `[TryError]: Only one @CatchError can be applied to a member. Property 'boom' is decorated more than once`,
+      );
+
+      expect(ran).toEqual([]);
+    });
+
+    /**
      * @CatchError installs its wrapper itself and never registers, so it cannot
      * be found in the try map the way a second @Try or @Catch can. Left
      * unchecked the outer decorator wraps the inner one's wrapper: the inner
@@ -94,6 +122,163 @@ describe('rejected declarations', () => {
       }).toThrow(
         `[TryError]: @CatchError cannot be combined with @Try or @Catch. Property 'boom' is already caught by @CatchError, which needs no class decorator`,
       );
+    });
+  });
+
+  /**
+   * A catcher's wrapper is the member from the moment it is installed, and an
+   * unrelated decorator above it is handed that wrapper and free to replace it
+   * with one of its own. Anything recorded on the wrapper goes with it, so the
+   * claim is kept against the prototype: the member's name there is the same
+   * however many decorators stand in between.
+   *
+   * Left to the wrapper, every one of these declarations is accepted and the
+   * inner catcher answers every call — the outer decorator's `returnOnError`
+   * and `runOnError` are unreachable, with nothing said.
+   */
+  describe('a decorator standing between two of ours', () => {
+    const relay = (
+      _target: object,
+      _property: string | symbol,
+      descriptor: PropertyDescriptor,
+    ): PropertyDescriptor => {
+      const wrapped = descriptor.value;
+
+      return {
+        ...descriptor,
+        value: function (this: unknown, ...args: unknown[]) {
+          return wrapped.apply(this, args);
+        },
+      };
+    };
+
+    it('should reject @Catch above it, over @CatchError', () => {
+      const ran: string[] = [];
+
+      expect(() => {
+        @TryCatch<Test>()
+        class Test {
+          @Catch<Test>({
+            returnOnError: 'outer',
+            runOnError: () => void ran.push('outer'),
+          })
+          @relay
+          @CatchError<Test>({ returnOnError: 'inner' })
+          boom(): string {
+            throw new Error('boom');
+          }
+        }
+
+        return Test;
+      }).toThrow(
+        `[TryError]: @CatchError cannot be combined with @Try or @Catch. Property 'boom' is already caught by @CatchError, which needs no class decorator`,
+      );
+
+      expect(ran).toEqual([]);
+    });
+
+    it('should reject @Try above it, over @CatchError', () => {
+      expect(() => {
+        @TryCatch<Test>()
+        class Test {
+          @Try<Test>()
+          @relay
+          @CatchError<Test>()
+          boom(): string {
+            throw new Error('boom');
+          }
+        }
+
+        return Test;
+      }).toThrow(
+        `[TryError]: @CatchError cannot be combined with @Try or @Catch. Property 'boom' is already caught by @CatchError, which needs no class decorator`,
+      );
+    });
+
+    it('should reject a second @CatchError above it', () => {
+      const ran: string[] = [];
+
+      expect(() => {
+        class Test {
+          @CatchError<Test>({
+            returnOnError: 'outer',
+            runOnError: () => void ran.push('outer'),
+          })
+          @relay
+          @CatchError<Test>({ returnOnError: 'inner' })
+          boom(): string {
+            throw new Error('boom');
+          }
+        }
+
+        return Test;
+      }).toThrow(
+        `[TryError]: Only one @CatchError can be applied to a member. Property 'boom' is decorated more than once`,
+      );
+
+      expect(ran).toEqual([]);
+    });
+
+    it('should leave a lone @CatchError beneath it working', () => {
+      class Test {
+        @relay
+        @CatchError<Test>({ returnOnError: 'caught' })
+        boom(): string {
+          throw new Error('boom');
+        }
+      }
+
+      expect(new Test().boom()).toBe('caught');
+    });
+  });
+
+  /**
+   * `@Catch` replaces the member so that a direct call is caught, and a
+   * decorator applied above it can seal the descriptor and make that
+   * impossible. Redefining it anyway throws a bare TypeError naming only the
+   * property, while leaving the member alone would demote `@Catch` to `@Try`
+   * with nothing said.
+   */
+  describe('a member another decorator sealed', () => {
+    const seal = (
+      _target: object,
+      _property: string | symbol,
+      descriptor: PropertyDescriptor,
+    ): PropertyDescriptor => ({ ...descriptor, configurable: false });
+
+    it('should reject @Catch beneath it, naming the member', () => {
+      expect(() => {
+        @TryCatch<Test>()
+        class Test {
+          @seal
+          @Catch<Test>()
+          boom(): string {
+            throw new Error('boom');
+          }
+        }
+
+        return Test;
+      }).toThrow(
+        `[TryError]: @Catch has to replace the member it catches, and property 'boom' cannot be redefined. A decorator applied above it returned a non-configurable descriptor`,
+      );
+    });
+
+    it('should accept @Try beneath it, which replaces nothing', () => {
+      interface Test extends TryCatchExtension<Test, 'boom'> {}
+
+      @TryCatch<Test>()
+      class Test {
+        @seal
+        @Try<Test>()
+        boom(): string {
+          throw new Error('boom');
+        }
+      }
+
+      const test = new Test();
+
+      expect(() => test.boom()).toThrow('boom');
+      expect(test.try.boom()).toBeNull();
     });
   });
 
@@ -234,6 +419,32 @@ describe('rejected declarations', () => {
       }).toThrow(
         `[TryError]: @TryCatch can only be applied once to a class. 'Test' is decorated more than once`,
       );
+    });
+
+    /**
+     * Stacked decorators hand the second `@TryCatch` the first one's proxy, but
+     * calling the factory's result directly hands it the class — a different
+     * object, and the one the members registered under. Accepted, the second
+     * manager reads the queue the first already emptied and replaces it, so
+     * every instance handed out before loses `.try` entirely.
+     */
+    it('should reject @TryCatch applied to the same class a second time', () => {
+      interface Test extends TryCatchExtension<Test, 'boom'> {}
+
+      class Test {
+        @Try<Test>()
+        boom(): string {
+          throw new Error('boom');
+        }
+      }
+
+      const wrapped = TryCatch<Test>()(Test);
+
+      expect(() => TryCatch<Test>()(Test)).toThrow(
+        `[TryError]: @TryCatch can only be applied once to a class. 'Test' is decorated more than once`,
+      );
+
+      expect(new wrapped().try.boom()).toBeNull();
     });
 
     it('should leave a subclass of a decorated class free to decorate', () => {

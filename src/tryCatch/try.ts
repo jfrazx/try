@@ -37,9 +37,9 @@ export function Try<T extends object>(tryOptions: TryOptions = {}) {
   return <K extends keyof T>(
     target: T,
     property: string | K,
-    descriptor: PropertyDescriptor,
+    _descriptor: PropertyDescriptor,
   ): void => {
-    return registerMember('Try', target, property, descriptor, {
+    return registerMember('Try', target, property, {
       ...tryOptions,
       alwaysCatch: false,
     });

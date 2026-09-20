@@ -215,14 +215,17 @@ export interface TryOptions extends SharedOptions {
   returnOnError?: any;
 }
 
-/** Internal. One decorated member, queued at decoration time for registration when the class decorator runs. */
+/**
+ * Internal. One decorated member, queued at decoration time for registration
+ * when the class decorator runs.
+ *
+ * The descriptor is deliberately not carried here. What a member decorator is
+ * handed is the member as it stood at that moment, and a decorator applied
+ * above it may replace the member afterwards — so the descriptor is read from
+ * the prototype at registration time instead, once every member decorator has
+ * had its turn.
+ */
 export interface DecoratedEventMap<T extends object, K extends keyof T> {
-  /**
-   * What the member decorator was handed. A plain property decorator receives
-   * nothing, which is why this is optional and why the catcher chain ends in a
-   * rule that rejects rather than wraps.
-   */
-  descriptor: PropertyDescriptor | undefined;
   options: RegistrationOptions;
   /**
    * The prototype the decorator was applied to. A member that always catches

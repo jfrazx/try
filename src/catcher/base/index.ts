@@ -1,6 +1,5 @@
 import type { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
 import type { OptionsContainer } from '../../options';
-import { CATCHER } from '../brand';
 
 /** Runs a decorated member inside try/catch and applies the resolved options to whatever it throws or returns. */
 export abstract class ErrorCatcher<
@@ -56,17 +55,19 @@ export abstract class ErrorCatcher<
    *
    * The wrapper is a plain function rather than a bound one so that `this` is
    * the object the member was called on, which is what the catcher runs the
-   * original against. It carries {@link CATCHER} so a second catching decorator
-   * on the same member is rejected rather than wrapping it again.
+   * original against.
+   *
+   * It carries no mark saying a catcher installed it. A second catching
+   * decorator is rejected by the claim the first one recorded against the
+   * prototype, which survives an unrelated decorator replacing this wrapper —
+   * a mark carried here would not.
    */
   protected binding(): TryCatchBinding<T, K> {
     const run = this.catchError.bind(this);
 
-    const binding = this.impersonate(function (this: T, ...args: any[]): T[K] {
+    return this.impersonate(function (this: T, ...args: any[]): T[K] {
       return run(this, ...args);
     } as TryCatchBinding<T, K>);
-
-    return Object.defineProperty(binding, CATCHER, { value: true });
   }
 
   /**

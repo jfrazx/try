@@ -64,6 +64,31 @@ export class TryManager<T extends object, K extends keyof T> {
   }
 
   /**
+   * Adopts the catchers of the class this one extends, once its own members are
+   * registered.
+   *
+   * A manager is built per class from that class's own decorators, so a
+   * subclass starts with a map covering only what it declares. Everything the
+   * base declared is still there on the instance — inherited through the
+   * prototype chain like any other member — and this is what keeps `.try`
+   * saying the same.
+   *
+   * Nothing to adopt when the class extends nothing decorated, which is the
+   * usual case.
+   *
+   * @internal
+   * @param parent - the manager of the class this one extends, if it has one
+   * @param prototype - this class's prototype, whose own members win
+   */
+  inherit(parent: TryManager<any, any> | undefined, prototype: object): void {
+    if (!parent) {
+      return;
+    }
+
+    this.tryMap.inheritFrom(parent.tryMap, prototype);
+  }
+
+  /**
    * The duplicate check belongs here rather than in a filter over the batch. A
    * filter is fully evaluated before the first registration, so two decorators
    * on one member both pass it, and the second builds its catcher from the
@@ -75,16 +100,22 @@ export class TryManager<T extends object, K extends keyof T> {
    * defined, in the same place an unsupported member does.
    *
    * {@link CatchError} never registers, so a member stacking it with `@Try` or
-   * `@Catch` cannot be found in the map. It is recognized by the brand on the
-   * wrapper it installs instead — without that check the descriptor arriving
-   * here is already a catcher, and building a second one around it leaves the
-   * inner decorator answering every call while the outer one's options are
-   * never reached.
+   * `@Catch` cannot be found in the map. It is recognized by the claim it
+   * records against the prototype instead — without that check the member
+   * arriving here is already a catcher, and building a second one around it
+   * leaves the inner decorator answering every call while the outer one's
+   * options are never reached.
+   *
+   * The descriptor is read from the prototype rather than taken from the
+   * decorator that queued the member. A decorator applied above `@Try` or
+   * `@Catch` runs afterwards and may replace the member, and by now every
+   * member decorator has run — so the prototype holds what the class actually
+   * declares, while the queued descriptor holds what it declared partway
+   * through decoration.
    */
   private registerTryCatchDescriptor({
     property,
     prototype,
-    descriptor,
     options,
   }: DecoratedEventMap<T, K>) {
     if (this.tryMap.hasPropertyInTryMap(property)) {
@@ -93,11 +124,13 @@ export class TryManager<T extends object, K extends keyof T> {
       );
     }
 
-    if (isCaught(descriptor)) {
+    if (isCaught(prototype, property)) {
       throw new Error(
         `[TryError]: @CatchError cannot be combined with @Try or @Catch. Property '${String(property)}' is already caught by @CatchError, which needs no class decorator`,
       );
     }
+
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
 
     const catcher = CatchRunner.for<T, K>(property, descriptor, {
       tryOptions: options,
@@ -122,6 +155,14 @@ export class TryManager<T extends object, K extends keyof T> {
    * subclass may be the first thing built, and it may override the member —
    * installing against the instance would leave the base class throwing and
    * would overwrite the override.
+   *
+   * A member another decorator sealed cannot be replaced, so it is rejected
+   * here in the library's own terms. Redefining it anyway throws a bare
+   * `TypeError` that says nothing about the decorators involved, and skipping
+   * it instead would quietly demote `@Catch` to `@Try` — the direct call would
+   * stop catching with nothing said.
+   *
+   * @throws if the member cannot be redefined
    */
   private installAlwaysCatch(
     prototype: object,
@@ -132,7 +173,15 @@ export class TryManager<T extends object, K extends keyof T> {
       return;
     }
 
-    Object.defineProperty(prototype, property, catcher.modifyDescriptor());
+    const descriptor = catcher.modifyDescriptor();
+
+    if (!descriptor.configurable) {
+      throw new Error(
+        `[TryError]: @Catch has to replace the member it catches, and property '${String(property)}' cannot be redefined. A decorator applied above it returned a non-configurable descriptor`,
+      );
+    }
+
+    Object.defineProperty(prototype, property, descriptor);
   }
 
   /**

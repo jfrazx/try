@@ -13,10 +13,13 @@ import { isFunction } from '../helpers';
  * `Function` — a key no class decorator ever reads. The member would be filed
  * where nothing looks, never catch, and say nothing about why.
  *
+ * What the decorator was handed is not queued with it. A decorator applied
+ * above this one may replace the member before the class decorator runs, so the
+ * descriptor is read from the prototype at registration time instead.
+ *
  * @param decorator - the decorator's name, for the message a static produces
  * @param target - the prototype the decorator was applied to
  * @param property - the decorated member
- * @param descriptor - what the decorator was handed; absent for a plain property
  * @param options - the member's options plus its resolved `alwaysCatch`
  * @throws if the decorated member is static
  */
@@ -24,7 +27,6 @@ export const registerMember = <T extends object, K extends keyof T>(
   decorator: string,
   target: T,
   property: string | K,
-  descriptor: PropertyDescriptor | undefined,
   options: RegistrationOptions,
 ): void => {
   if (isFunction(target)) {
@@ -36,7 +38,6 @@ export const registerMember = <T extends object, K extends keyof T>(
   return TryClassWrapper.registerDecorator(target.constructor, {
     property,
     prototype: target,
-    descriptor,
     options,
   });
 };

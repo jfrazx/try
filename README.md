@@ -292,6 +292,116 @@ class Config {
 Note that `@TryCatch()` takes **only** `runOnError`. `returnOnError` is a
 per-member decision and has no class-wide form.
 
+## Subclassing
+
+A subclass inherits the catchable members of the class it extends. Decorate the
+subclass too and its `.try` answers for both — what it declares, and what it
+inherited.
+
+```ts
+import { TryCatch, Catch, type TryCatchExtension, type Tryable } from '@status/try';
+
+interface Base extends TryCatchExtension<Base, 'load'> {}
+
+@TryCatch<Base>()
+class Base {
+  @Catch()
+  load(): string {
+    throw new Error('nope');
+  }
+}
+
+@TryCatch<Sub>()
+class Sub extends Base {
+  @Catch({ returnOnError: 'saved' })
+  save(): string {
+    throw new Error('nope');
+  }
+}
+
+const sub = new Sub() as Tryable<Sub, 'load' | 'save'>;
+
+sub.try.load(); // null, inherited from Base
+sub.try.save(); // 'saved'
+```
+
+An inherited member keeps the options it was declared under, the base class's
+`@TryCatch` defaults included. It is the same catcher rather than a rebuilt
+one, so extending a class never changes how its members behave.
+
+### Overrides
+
+A member the subclass declares is the subclass's own. Decorate it and it gets
+its own catcher, which takes precedence over the inherited one.
+
+Override it **without** a decorator and it is not catchable. `.try` says so
+rather than quietly running the implementation you replaced:
+
+```ts
+@TryCatch<Sub>()
+class Sub extends Base {
+  load(): string {
+    throw new Error('nope');
+  }
+}
+
+new Sub().load(); // Error: nope
+
+(new Sub() as any).try.load();
+// [TryError]: Property 'load' does not exist in TryMap
+```
+
+`super` reaches the base's member as the base left it, which differs by
+decorator. `@Try` leaves the member alone, so `super` gets the original and it
+throws. `@Catch` replaced the member, so `super` gets the catcher:
+
+```ts
+@TryCatch<Base>()
+class Base {
+  @Try({ returnOnError: 'tried' })
+  tried(): string {
+    throw new Error('nope');
+  }
+
+  @Catch({ returnOnError: 'caught' })
+  caught(): string {
+    throw new Error('nope');
+  }
+}
+
+@TryCatch<Sub>()
+class Sub extends Base {
+  tried(): string {
+    return super.tried(); // throws Error('nope')
+  }
+
+  caught(): string {
+    return super.caught(); // 'caught'
+  }
+}
+```
+
+There is no way to reach the undecorated original of a `@Catch` member. Always
+catching is what `@Catch` means, and it holds for a subclass calling `super` as
+much as for anything else.
+
+### Typing a subclass
+
+A subclass cannot merge an interface of its own. It already inherits the base's
+`try`, and a second declaration of a different type is rejected:
+
+```ts
+interface Sub extends TryCatchExtension<Sub, 'save'> {}
+// TS2320: Interface 'Sub' cannot simultaneously extend types 'Base' and
+// 'TryCatchExtension<Sub, "save">'.
+```
+
+Use `Tryable<T, K>` instead, listing what the subclass exposes:
+
+```ts
+const sub = new Sub() as Tryable<Sub, 'load' | 'save'>;
+```
+
 ## TypeScript
 
 `.try` and `getTryManager()` are installed at runtime, so the class declaration

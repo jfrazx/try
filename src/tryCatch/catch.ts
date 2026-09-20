@@ -47,9 +47,9 @@ export function Catch<T extends object>(tryOptions: TryOptions = {}) {
   return <K extends keyof T>(
     target: T,
     property: string | K,
-    descriptor: PropertyDescriptor,
+    _descriptor: PropertyDescriptor,
   ): void => {
-    return registerMember('Catch', target, property, descriptor, {
+    return registerMember('Catch', target, property, {
       ...tryOptions,
       alwaysCatch: true,
     });
