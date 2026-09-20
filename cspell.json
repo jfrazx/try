@@ -14,7 +14,8 @@
     "swcrc",
     "tryable",
     "tsdown",
-    "unittests"
+    "unittests",
+    "wrappable"
   ],
   "ignoreRegExpList": ["/from '[@a-zA-Z]'/", "/YY[YMD hms]+/"]
 }

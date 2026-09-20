@@ -75,7 +75,7 @@ export class TryManager<T extends object, K extends keyof T> {
    * defined, in the same place an unsupported member does.
    *
    * {@link CatchError} never registers, so a member stacking it with `@Try` or
-   * `@Catch` cannot be found in the map. It is recognised by the brand on the
+   * `@Catch` cannot be found in the map. It is recognized by the brand on the
    * wrapper it installs instead — without that check the descriptor arriving
    * here is already a catcher, and building a second one around it leaves the
    * inner decorator answering every call while the outer one's options are
