@@ -32,11 +32,11 @@ enabled:
 
 The library offers a choice about **when** a method is allowed to fail.
 
-| Decorator       | Needs `@TryCatch` on the class | Catches                                            |
-| --------------- | ------------------------------ | -------------------------------------------------- |
-| `@Try()`        | yes                            | only when called through `.try`                    |
-| `@Catch()`      | yes                            | always, and listed on `.try` — [see below](#catch) |
-| `@CatchError()` | no                             | always                                             |
+| Decorator       | Needs `@TryCatch` on the class | Catches                                    |
+| --------------- | ------------------------------ | ------------------------------------------ |
+| `@Try()`        | yes                            | only when called through `.try`            |
+| `@Catch()`      | yes                            | always — direct calls too, not only `.try` |
+| `@CatchError()` | no                             | always                                     |
 
 A member takes one of these, not several. Two on the same member is a
 contradiction rather than a combination, so it is rejected as the class is
@@ -79,8 +79,8 @@ that line is doing and how it scales past one method.
 
 ### `@Catch`
 
-`@Catch()` is the middle ground — registered on the class like `@Try()`, but
-catching on every call rather than only through `.try`.
+`@Catch()` always catches. Every call to the member is covered — a direct call
+just as much as one through `.try`.
 
 ```ts
 import { TryCatch, Catch, type TryCatchExtension } from '@status/try';
@@ -102,10 +102,14 @@ config.try.parse('not json'); // null
 config.try.parse('{"a":"b"}'); // { a: 'b' }
 ```
 
-Reach for it when every caller wants the fallback, but you still want the
-member listed on `.try` alongside the rest of the class. When the class has no
-other catchable members, `@CatchError()` is the lighter choice — it needs no
-class decorator.
+It does need `@TryCatch()` on the class: the class decorator is what builds the
+registry that installs the catching. `.try` is an additional way to reach the
+member, never the gate. Without the class decorator the member is left exactly
+as declared, and `@CatchError()` is the decorator for that case — it catches
+every call and needs nothing on the class.
+
+Reach for `@Catch()` when every caller wants the fallback and you also want the
+member listed on `.try` alongside the rest of the class.
 
 Options resolve identically on both paths: a `runOnError` passed to
 `@TryCatch()` applies to a direct call just as it does through `.try`.

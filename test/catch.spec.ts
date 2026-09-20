@@ -327,4 +327,36 @@ describe('Catch', () => {
       expect(Sum.prototype.add).toHaveLength(2);
     });
   });
+
+  /**
+   * Pinned deliberately: @Catch is the always-catching member of a class that
+   * has a `.try` map, and the class decorator is what builds the manager that
+   * installs the catcher. Without it the member is left exactly as declared.
+   *
+   * Catching on its own would leave @Catch indistinguishable from @CatchError,
+   * which is the decorator for a member that wants no class registry at all.
+   */
+  describe('without @TryCatch on the class', () => {
+    it('should leave a method throwing', () => {
+      class Bare {
+        @Catch<Bare>()
+        boom(): string {
+          throw new Error('boom');
+        }
+      }
+
+      expect(() => new Bare().boom()).toThrow('boom');
+    });
+
+    it('should leave an accessor throwing', () => {
+      class Bare {
+        @Catch<Bare>()
+        get boom(): string {
+          throw new Error('boom');
+        }
+      }
+
+      expect(() => new Bare().boom).toThrow('boom');
+    });
+  });
 });
