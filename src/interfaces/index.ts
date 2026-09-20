@@ -215,9 +215,14 @@ export interface TryOptions extends SharedOptions {
   returnOnError?: any;
 }
 
-/** Internal. One decorated member, queued at decoration time for registration when the class is constructed. */
+/** Internal. One decorated member, queued at decoration time for registration when the class decorator runs. */
 export interface DecoratedEventMap<T extends object, K extends keyof T> {
-  descriptor: TypedPropertyDescriptor<T[K]>;
+  /**
+   * What the member decorator was handed. A plain property decorator receives
+   * nothing, which is why this is optional and why the catcher chain ends in a
+   * rule that rejects rather than wraps.
+   */
+  descriptor: PropertyDescriptor | undefined;
   options: RegistrationOptions;
   /**
    * The prototype the decorator was applied to. A member that always catches

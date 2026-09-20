@@ -1,5 +1,5 @@
 import type { TryCatchOptions, DecoratedEventMap } from '../interfaces';
-import { CatchRunner, type CatchError } from '../catcher';
+import { CatchRunner, isCaught, type CatchError } from '../catcher';
 import { TryMapHandler, TryMap } from './map';
 
 /**
@@ -45,16 +45,17 @@ export class TryManager<T extends object, K extends keyof T> {
   constructor(private global: TryCatchOptions) {}
 
   /**
-   * Registers each decorated member, skipping any already registered.
+   * Registers each decorated member, rejecting any member decorated twice.
    *
-   * The skip is per class, not per instance, and that is sound: a catcher holds
-   * no reference to the object it runs against, and members that always catch
-   * are installed on the prototype, so one registration serves every instance.
+   * One registration serves every instance: a catcher holds no reference to the
+   * object it runs against, and a member that always catches is installed on
+   * the prototype, so there is nothing per-instance left to do.
    *
    * Called by the class wrapper as the class is defined; not part of normal use.
    *
    * @internal
    * @param descriptorMap - members collected at decoration time
+   * @throws if a member carries more than one catching decorator
    */
   registerTryCatchDescriptors(descriptorMap: DecoratedEventMap<T, K>[]): void {
     descriptorMap.forEach((descriptor) =>
@@ -72,6 +73,13 @@ export class TryManager<T extends object, K extends keyof T> {
    * resolve by ordering: whichever the library picked, the other would be
    * discarded in silence. Rejecting it here means that shows up as the class is
    * defined, in the same place an unsupported member does.
+   *
+   * {@link CatchError} never registers, so a member stacking it with `@Try` or
+   * `@Catch` cannot be found in the map. It is recognised by the brand on the
+   * wrapper it installs instead — without that check the descriptor arriving
+   * here is already a catcher, and building a second one around it leaves the
+   * inner decorator answering every call while the outer one's options are
+   * never reached.
    */
   private registerTryCatchDescriptor({
     property,
@@ -82,6 +90,12 @@ export class TryManager<T extends object, K extends keyof T> {
     if (this.tryMap.hasPropertyInTryMap(property)) {
       throw new Error(
         `[TryError]: Only one of @Try or @Catch can be applied to a member. Property '${String(property)}' is decorated more than once`,
+      );
+    }
+
+    if (isCaught(descriptor)) {
+      throw new Error(
+        `[TryError]: @CatchError cannot be combined with @Try or @Catch. Property '${String(property)}' is already caught by @CatchError, which needs no class decorator`,
       );
     }
 

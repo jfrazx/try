@@ -1,7 +1,7 @@
 import type { ShouldHandle } from '../../../../interfaces';
+import { UnsupportedMemberRule } from './unsupported';
 import { OptionsContainer } from '../../../../options';
 import { AccessorCatcherRule } from './accessor';
-import { PropertyCatcherRule } from './property';
 import { MethodCatcherRule } from './method';
 
 /**
@@ -15,14 +15,14 @@ import { MethodCatcherRule } from './method';
 export interface CatcherConstructor {
   new (
     property: string,
-    descriptor: PropertyDescriptor,
+    descriptor: PropertyDescriptor | undefined,
     options: OptionsContainer,
   ): ShouldHandle;
 }
 
-/** Ordered: first match wins, so the rejecting {@link PropertyCatcherRule} must stay first. */
+/** Ordered: first match wins, so the rejecting {@link UnsupportedMemberRule} must stay last. */
 export const rules: CatcherConstructor[] = [
-  PropertyCatcherRule,
   AccessorCatcherRule,
   MethodCatcherRule,
+  UnsupportedMemberRule,
 ];

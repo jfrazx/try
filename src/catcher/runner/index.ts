@@ -14,7 +14,7 @@ import type { CatchError } from '../interfaces';
 export abstract class CatchRunner {
   static for<T extends object, K extends keyof T>(
     property: string | K,
-    descriptor: TypedPropertyDescriptor<T[K]>,
+    descriptor: PropertyDescriptor | undefined,
     combinedOptions: TryAllOptions,
   ): CatchError<T, K> {
     const options = new OptionsContainer(combinedOptions);

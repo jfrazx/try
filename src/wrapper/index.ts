@@ -1,5 +1,4 @@
 import type { TryCatchOptions, DecoratedEventMap } from '../interfaces';
-import { Default, wrapDefaults } from '@status/defaults';
 import { TryHandler } from '../handler';
 import { TryManager } from '../manager';
 
@@ -10,22 +9,24 @@ export interface TryConstruct<T extends object> {
 
 /**
  * Proxy handler behind `@TryCatch`. Holds each class's manager and the
- * decorators that registered before construction, then wires them together
- * whenever the class is instantiated.
+ * decorators that registered before it, wiring them together as the class is
+ * defined and handing each new instance its `.try` map.
+ *
+ * Every map here is weak and keyed by the class, so decorating a class created
+ * per request, per tenant, or per test leaves nothing behind once that class is
+ * unreachable.
  */
 export class TryClassWrapper<
   T extends Function,
   K extends keyof T,
 > implements ProxyHandler<T> {
-  private static managerMap = new Map<Function, TryManager<any, any>>();
-  private static decoratorMap: Default<
-    Map<Function, DecoratedEventMap<any, any>[]>
-  > = wrapDefaults({
-    execute: true,
-    setUndefined: true,
-    defaultValue: (): DecoratedEventMap<any, any>[] => [],
-    wrap: new Map<Function, DecoratedEventMap<any, any>[]>(),
-  });
+  private static managerMap = new WeakMap<Function, TryManager<any, any>>();
+  private static decoratorMap = new WeakMap<
+    Function,
+    DecoratedEventMap<any, any>[]
+  >();
+
+  private static wrapped = new WeakSet<Function>();
 
   /**
    * Registers the decorated members as the class is defined, not as it is
@@ -36,6 +37,9 @@ export class TryClassWrapper<
    * it here is what makes a member that always catches catch from the moment
    * the class exists: before the first instance, through a reference captured
    * before it, and when the constructor itself calls the member.
+   *
+   * The queue is dropped once read. It has served its only purpose, and holding
+   * it would keep every decorated descriptor alive for as long as the class is.
    */
   constructor(target: T, options: TryCatchOptions) {
     const manager = new TryManager<T, K>(options);
@@ -44,6 +48,7 @@ export class TryClassWrapper<
       TryClassWrapper.retrieveDecoratorMap(target),
     );
 
+    TryClassWrapper.decoratorMap.delete(target);
     TryClassWrapper.managerMap.set(target, manager);
   }
 
@@ -56,11 +61,31 @@ export class TryClassWrapper<
     );
   }
 
+  /**
+   * Applying `@TryCatch` twice is rejected rather than silently obeyed.
+   *
+   * The second application receives the first one's proxy, which is a different
+   * key from the class the member decorators registered under — so the outer
+   * manager reads an empty queue, and its `.try` map, the one every instance
+   * actually gets, would answer for no member at all.
+   *
+   * @throws if the class is already wrapped
+   */
   static wrap<T extends Function, K extends keyof T>(
     klass: T,
     options: TryCatchOptions,
   ): T {
-    return new Proxy(klass, new TryClassWrapper<T, K>(klass, options));
+    if (this.wrapped.has(klass)) {
+      throw new Error(
+        `[TryError]: @TryCatch can only be applied once to a class. '${klass.name}' is decorated more than once`,
+      );
+    }
+
+    const wrapper = new Proxy(klass, new TryClassWrapper<T, K>(klass, options));
+
+    this.wrapped.add(wrapper);
+
+    return wrapper;
   }
 
   static registerDecorator<T extends Function>(
@@ -73,6 +98,16 @@ export class TryClassWrapper<
   private static retrieveDecoratorMap<T extends Function>(
     klass: T,
   ): DecoratedEventMap<T, any>[] {
-    return this.decoratorMap.get(klass)!;
+    const registered = this.decoratorMap.get(klass);
+
+    if (registered) {
+      return registered;
+    }
+
+    const queue: DecoratedEventMap<T, any>[] = [];
+
+    this.decoratorMap.set(klass, queue);
+
+    return queue;
   }
 }

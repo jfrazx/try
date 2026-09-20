@@ -164,7 +164,8 @@ await remote.config; // null
 await remote.load(); // null
 ```
 
-Only methods and accessors can be decorated. A plain property is rejected:
+Only methods and getters can be decorated, and anything else is rejected as the
+class is defined rather than on the first construction:
 
 ```ts
 import { TryCatch, Try } from '@status/try';
@@ -175,11 +176,16 @@ class Broken {
   @Try<Broken>()
   value = 'nope';
 }
-
-new Broken();
 // [TryError]: Only methods and accessors can be captured.
 // Property 'value' not supported
 ```
+
+A setter with no getter is rejected the same way. Catching replaces what a
+member hands back, and a setter hands back nothing.
+
+Members must also be instance members. A static is handed the constructor rather
+than the prototype, so it never reaches the registry `@TryCatch()` builds —
+`@CatchError()` is the one to reach for there, since it needs no registry.
 
 ## Options
 
