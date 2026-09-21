@@ -2,6 +2,7 @@ import { TryProperties } from '../../../interfaces';
 import { ShouldHandleRule } from '../base';
 import { Handle } from '../interfaces';
 
+/** Serves `.try`, returning the map of catchable members. */
 export class TryRule<T extends object, K extends keyof T> extends ShouldHandleRule<
   T,
   K
@@ -11,6 +12,6 @@ export class TryRule<T extends object, K extends keyof T> extends ShouldHandleRu
   }
 
   handle(): TryProperties<T, K> {
-    return this.handler.getTryManager().getTryMap();
+    return this.handler.getTryMap(this.receiver);
   }
 }

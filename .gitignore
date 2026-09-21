@@ -1,23 +1,15 @@
-*.map
-*.js
 *.log
 *.pid
 .DS_Store
-*.d.ts
 logs
 *.lcov
 
-!examples/**/*
 dist/
 build/
-
-build-examples/
-node_modules/
-.nyc_output/
 coverage/
+docs/api/
+node_modules/
 .yarn/
 
 */.DS_Store
-
-!.eslintrc.js
-!jest.config.js
+*.tsbuildinfo

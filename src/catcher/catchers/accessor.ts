@@ -1,6 +1,7 @@
 import type { TryCatchPrepare } from '../interfaces';
 import { ErrorCatcher } from '../base';
 
+/** Catcher for getters, wrapping `descriptor.get`. */
 export class AccessorCatcher<
   T extends object,
   K extends keyof T,
@@ -15,7 +16,7 @@ export class AccessorCatcher<
     return descriptor;
   }
 
-  prepareRun(): TryCatchPrepare<T, K> {
-    return this.catchError();
+  prepareRun(receiver: T): TryCatchPrepare<T, K> {
+    return this.catchError(receiver);
   }
 }

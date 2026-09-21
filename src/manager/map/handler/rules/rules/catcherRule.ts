@@ -1,8 +1,8 @@
 import { ShouldHandleTryMapRule } from '../base';
-import type { TryMap } from '../../../map';
 
+/** Terminal `.try` rule: hands back the registered catcher, or the thrower when nothing is registered. */
 export class CatcherRule<
-  T extends TryMap<T, K>,
+  T extends object,
   K extends keyof T,
 > extends ShouldHandleTryMapRule<T, K> {
   shouldHandle(): boolean {
@@ -10,6 +10,8 @@ export class CatcherRule<
   }
 
   handle() {
-    return this.target.getTryCatcher(this.property).prepareRun(this.property);
+    return this.target
+      .getTryCatcher(this.property as K)
+      .prepareRun(this.receiver, this.property);
   }
 }

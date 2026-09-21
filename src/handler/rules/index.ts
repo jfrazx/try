@@ -2,6 +2,7 @@ import type { Tryable, ShouldHandle } from '../../interfaces';
 import type { TryHandler } from '../handler';
 import { rules } from './rules';
 
+/** Picks the first instance rule that claims the property. */
 export abstract class HandlerRuleRunner {
   static fetchRule<T extends object, K extends keyof T>(
     handler: TryHandler<T, K>,

@@ -1,5 +1,6 @@
 import { ShouldHandleRule } from '../base';
 
+/** Fallback: ordinary property access, forwarded untouched to the real instance. */
 export class ReflectRule<
   T extends object,
   K extends keyof T,

@@ -1,6 +1,22 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "language": "en",
-  "words": ["tryable", "klass"],
+  "ignorePaths": ["node_modules", "build", "dist", "coverage", "docs", ".yarn"],
+  "words": [
+    "catchable",
+    "codeql",
+    "jfrazx",
+    "klass",
+    "lcov",
+    "oxc",
+    "rolldown",
+    "Snyk",
+    "subclassing",
+    "swcrc",
+    "tryable",
+    "tsdown",
+    "unittests",
+    "wrappable"
+  ],
   "ignoreRegExpList": ["/from '[@a-zA-Z]'/", "/YY[YMD hms]+/"]
 }

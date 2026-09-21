@@ -1,28 +1,21 @@
 {
   "compilerOptions": {
     "strict": true,
-    "target": "es6",
-    "sourceMap": true,
-    "outDir": "./build",
-    "declaration": true,
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "lib": ["ESNext"],
-    "incremental": true,
-    "module": "commonjs",
-    "alwaysStrict": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
-    "noUnusedLocals": true,
-    "removeComments": true,
+    "types": ["node", "jest"],
+    "noEmit": true,
+    "sourceMap": true,
+    "removeComments": false,
     "esModuleInterop": true,
-    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "strictBindCallApply": true,
-    "strictFunctionTypes": true,
-    "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noFallthroughCasesInSwitch": true,
-    "strictPropertyInitialization": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"]
+  "include": ["src", "test", "tsdown.config.ts"]
 }
