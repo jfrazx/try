@@ -1,4 +1,4 @@
-import { Catch, TryCatch, type TryCatchExtension } from '../src';
+import { Catch, TryCatch, type TryCatchExtension, type TryError } from '../src';
 
 const boom = Symbol('boom');
 
@@ -29,5 +29,43 @@ describe('a symbol-named member', () => {
 
   it('should leave an undecorated symbol passing through', () => {
     expect((new Test().try as any)[Symbol.iterator]).toBeUndefined();
+  });
+});
+
+/**
+ * `property` is documented as a string and every example in the README
+ * interpolates it, so a symbol-named member has to arrive already converted.
+ * Handing the symbol itself over would throw on interpolation — inside the
+ * callback written to handle the failure, which is the worst place to find out.
+ *
+ * Both decorator paths build their metadata in the same catcher, so pinning one
+ * pins the other.
+ */
+describe('error metadata for a symbol-named member', () => {
+  const seen: TryError[] = [];
+
+  interface Logged extends TryCatchExtension<Logged, typeof boom> {}
+
+  @TryCatch<Logged>({ runOnError: (tryError: TryError) => void seen.push(tryError) })
+  class Logged {
+    @Catch<Logged>()
+    [boom](): string {
+      throw new Error('boom');
+    }
+  }
+
+  beforeEach(() => {
+    seen.length = 0;
+
+    new Logged()[boom]();
+  });
+
+  it('should hand runOnError the name as a string', () => {
+    expect(typeof seen[0].property).toBe('string');
+    expect(seen[0].property).toBe('Symbol(boom)');
+  });
+
+  it('should survive the interpolation the README documents', () => {
+    expect(`${seen[0].property} failed`).toBe('Symbol(boom) failed');
   });
 });

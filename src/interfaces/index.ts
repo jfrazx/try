@@ -153,7 +153,10 @@ export interface TryCatchOptions extends SharedOptions {}
 export interface TryError {
   /** The error the member threw. */
   error: Error;
-  /** Name of the member that threw. */
+  /**
+   * Name of the member that threw. A symbol-named member arrives in its
+   * `String()` form — `Symbol(parse)` — so this is always safe to interpolate.
+   */
   property: string;
   /** Arguments the member was called with, in the order they were passed. */
   arguments: any[];

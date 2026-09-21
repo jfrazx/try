@@ -35,11 +35,21 @@ export abstract class ErrorCatcher<
     return this.options.alwaysCatch;
   }
 
+  /**
+   * The member name is converted rather than cast. A symbol-named member
+   * arrives here as a symbol, and `TryError.property` promises a string —
+   * handing the symbol over behind a cast leaves the handler holding one while
+   * TypeScript reports a string.
+   *
+   * That mismatch surfaces in the first thing anyone does with the field:
+   * `${property}` throws on a symbol, so the documented way to log a failure
+   * would itself throw, inside the callback written to handle failures.
+   */
   protected onError(error: Error, args: any[]): any {
     const runOnResult = this.options.runOnError({
       error,
       arguments: args,
-      property: this.property as string,
+      property: String(this.property),
       returnOnError: this.options.returnOnError,
     });
 
