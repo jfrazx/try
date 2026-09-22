@@ -1,3 +1,4 @@
+import type { TryCatchExtension } from '../src';
 import { Gambler } from './lib/gambler';
 import { TryCatch, Try } from '../src';
 
@@ -94,6 +95,38 @@ describe('Try', () => {
       const success = gambler.try.successUndefined();
 
       expect(success).toBeUndefined();
+    });
+
+    /**
+     * A rejected promise is caught by attaching to the promise the member
+     * returned, and what makes a return value a promise has to be a `catch`
+     * that can be called. Optional call syntax guards `null` and `undefined`
+     * alone, so an ordinary object carrying a `catch` key threw a `TypeError`
+     * from inside the catcher, which the catcher's own try block then caught:
+     * a successful call came back as the fallback, with `runOnError` fired on
+     * an error nothing raised.
+     */
+    it('should hand back a value carrying a non-callable catch key', () => {
+      const errors: string[] = [];
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          return { catch: 'not a function', data: 7 };
+        }
+      }
+
+      expect(new Payload().try.load()).toEqual({
+        catch: 'not a function',
+        data: 7,
+      });
+      expect(errors).toEqual([]);
     });
   });
 });

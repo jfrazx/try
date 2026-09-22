@@ -1,5 +1,6 @@
 import type { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
 import type { OptionsContainer } from '../../options';
+import { isFunction } from '../../helpers';
 
 /** Runs a decorated member inside try/catch and applies the resolved options to whatever it throws or returns. */
 export abstract class ErrorCatcher<
@@ -24,11 +25,23 @@ export abstract class ErrorCatcher<
     }
   }
 
+  /**
+   * A rejected promise is caught by attaching to the promise the member
+   * returned, so an async member resolves the same options a synchronous one
+   * does.
+   *
+   * `catch` is confirmed callable rather than merely present. Optional call
+   * syntax guards `null` and `undefined` alone, so an ordinary object carrying
+   * a `catch` key threw a `TypeError` from inside this method — which the try
+   * block above then caught and reported as though the member had failed. A
+   * successful call came back as the fallback, with `runOnError` fired on a
+   * fabricated error. `JSON.parse('{"catch": 1}')` is enough to do it, and
+   * nothing about the returned data is under the caller's control.
+   */
   private catchReturn(returnValue: any, args: any[]): any {
-    return (
-      returnValue?.catch?.((error: Error) => this.onError(error, args)) ??
-      returnValue
-    );
+    return isFunction(returnValue?.catch)
+      ? returnValue.catch((error: Error) => this.onError(error, args))
+      : returnValue;
   }
 
   get alwaysCatch(): boolean {
