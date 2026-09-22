@@ -1,4 +1,5 @@
 import { ShouldHandleTryMapRule } from '../base';
+import { TryMap } from '../../../map';
 
 /**
  * Lets TryMap's own methods through, so `.try` still answers its API rather
@@ -13,7 +14,7 @@ export class TryMapMethodRule<
   K extends keyof T,
 > extends ShouldHandleTryMapRule<T, K> {
   shouldHandle(): boolean {
-    return this.property in this.target;
+    return TryMap.shadows(this.target, this.property);
   }
 
   handle() {

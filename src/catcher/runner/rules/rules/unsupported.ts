@@ -1,5 +1,4 @@
 import type { CatchError } from '../../../interfaces';
-import { isObject } from '../../../../helpers';
 import { CatcherRule } from '../base';
 
 /**
@@ -7,9 +6,7 @@ import { CatcherRule } from '../base';
  *
  * It runs last and claims whatever the accessor and method rules declined,
  * which is the only way a member that is neither reaches a message rather than
- * falling off the end of the chain. Two cases arrive here — a plain property,
- * for which the decorator receives no descriptor at all, and a setter with no
- * getter, which has a descriptor with nothing wrappable on it.
+ * falling off the end of the chain.
  */
 export class UnsupportedMemberRule<
   T extends object,
@@ -20,10 +17,39 @@ export class UnsupportedMemberRule<
   }
 
   handle(): CatchError<T, K> {
-    throw new Error(
-      isObject(this.descriptor)
-        ? `[TryError]: Only methods and getters can be captured. Property '${this.property.toString()}' has no value or getter to wrap`
-        : `[TryError]: Only methods and accessors can be captured. Property '${this.property.toString()}' not supported`,
-    );
+    throw new Error(`[TryError]: ${this.message()}`);
+  }
+
+  /**
+   * Three descriptor shapes arrive here, and each needs a different sentence to
+   * be true of it.
+   *
+   * No descriptor at all is what a member decorator is handed for a plain
+   * property, and what a wrapped object yields for a member its type promised
+   * and the object does not have.
+   *
+   * A descriptor carrying `value` is a data property. `tryWrap` reaches it
+   * head-on, with a mapped member that turns out to hold one; the decorators
+   * reach it through a decorator applied above them that replaced the member,
+   * since the descriptor is re-read from the prototype once every member
+   * decorator has run. Telling either the property has no value to wrap would
+   * be false of the one thing it does have.
+   *
+   * A descriptor carrying neither is a setter with no getter: there is genuinely
+   * nothing on it to run.
+   */
+  private message(): string {
+    const property = this.property.toString();
+    const { descriptor } = this;
+
+    if (!descriptor) {
+      return `Only methods and accessors can be captured. Property '${property}' not supported`;
+    }
+
+    if ('value' in descriptor) {
+      return `Only methods and getters can be captured. Property '${property}' holds a value that is not a function`;
+    }
+
+    return `Only methods and getters can be captured. Property '${property}' has no value or getter to wrap`;
   }
 }

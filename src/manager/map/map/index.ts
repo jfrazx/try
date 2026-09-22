@@ -91,6 +91,25 @@ export class TryMap<T extends object, K extends keyof T> {
     return false;
   }
 
+  /**
+   * Whether `.try` answers this name with something of its own rather than with
+   * the catcher registered for it.
+   *
+   * Everything declared here, and everything inherited from `Object.prototype`,
+   * is reached before any catcher — so a member named `toString`, `valueOf` or
+   * `constructor` resolves to the map's own and its registration is never
+   * consulted. See {@link https://github.com/jfrazx/try/issues/34 | issue #34}.
+   *
+   * Asked of the map itself rather than of a list of names, so the answer
+   * cannot drift from what the rule serving `.try` actually does.
+   *
+   * Static because an instance method would be found by its own `in`: declaring
+   * the question here would add its name to the set the question is about.
+   */
+  static shadows(map: TryMap<any, any>, property: PropertyKey): boolean {
+    return property in map;
+  }
+
   hasPropertyInTryMap(property: K): boolean {
     return this.propertyMap.has(property);
   }
