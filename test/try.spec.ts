@@ -128,5 +128,45 @@ describe('Try', () => {
       });
       expect(errors).toEqual([]);
     });
+
+    /**
+     * `catch` is read once, and the function that read produced is the one
+     * called, against the value that carried it. Reading it a second time to
+     * make the call lets an accessor pass the check and then answer the call
+     * with something else, and runs a getter's side effects twice.
+     */
+    it('should read a returned catch once and call it on its owner', () => {
+      const errors: string[] = [];
+      let reads = 0;
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          const value = {
+            get catch() {
+              reads += 1;
+
+              return reads === 1
+                ? function (this: unknown) {
+                    return this === value ? 'ATTACHED' : 'DETACHED';
+                  }
+                : 'no longer a function';
+            },
+          };
+
+          return value;
+        }
+      }
+
+      expect(new Payload().try.load()).toBe('ATTACHED');
+      expect(reads).toBe(1);
+      expect(errors).toEqual([]);
+    });
   });
 });

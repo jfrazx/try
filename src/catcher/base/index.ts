@@ -37,10 +37,18 @@ export abstract class ErrorCatcher<
    * successful call came back as the fallback, with `runOnError` fired on a
    * fabricated error. `JSON.parse('{"catch": 1}')` is enough to do it, and
    * nothing about the returned data is under the caller's control.
+   *
+   * It is read once, and what that read produced is what gets called, against
+   * the value that carried it. Reading it again to make the call lets an
+   * accessor pass the check and then answer the call with something else —
+   * the same fabricated error by another road — and runs a getter's side
+   * effects twice. Promise resolution reads `then` once for the same reason.
    */
   private catchReturn(returnValue: any, args: any[]): any {
-    return isFunction(returnValue?.catch)
-      ? returnValue.catch((error: Error) => this.onError(error, args))
+    const attach = returnValue?.catch;
+
+    return isFunction(attach)
+      ? attach.call(returnValue, (error: Error) => this.onError(error, args))
       : returnValue;
   }
 
