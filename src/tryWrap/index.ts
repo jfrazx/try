@@ -22,6 +22,20 @@ import { isCaught } from '../catcher';
  * change its return type, so `.try` and `getTryManager()` are typed from the
  * member map.
  *
+ * A key outside `keyof T` is a compile error, which the constraint on `M` does
+ * not manage alone. `M` is inferred from the literal, and a literal sharing a
+ * single key with `TryMembers<T>` satisfies it with every other key riding
+ * along — so a typo beside a real member compiled. The parameter requires each
+ * such key to be `never` as well, which no options object is.
+ *
+ * Both halves of that requirement are load-bearing. Intersecting a bare
+ * `Record` of the stray keys costs an inline `runOnError` its parameter types,
+ * and breaks a caller forwarding a `TryMembers<T>` of its own, whose stray keys
+ * are an `Exclude` of a generic that never simplifies. The conditional hands
+ * back `unknown` whenever every key belongs to `T`, which a forwarded map's
+ * keys provably do. `NoInfer` keeps `M` inferred from the map rather than the
+ * requirement — left out, a forwarded map infers `M` as `T` itself.
+ *
  * @template T - the object being wrapped
  * @template M - the member map, which is what types `.try`
  * @param target - the object whose members should become catchable
@@ -48,7 +62,10 @@ import { isCaught } from '../catcher';
  */
 export function tryWrap<T extends object, M extends TryMembers<T>>(
   target: T,
-  members: M,
+  members: M &
+    NoInfer<
+      keyof M extends keyof T ? unknown : Record<Exclude<keyof M, keyof T>, never>
+    >,
   options: TryCatchOptions = {},
 ): Tryable<T, Extract<keyof M, keyof T>> {
   type K = Extract<keyof M, keyof T>;

@@ -232,6 +232,18 @@ describe('tryWrap and the members it exposes', () => {
     );
   });
 
+  it('should reject an unknown key beside a known one at compile time', () => {
+    // the map above shares no key with `TryMembers<JSON>`, which the
+    // constraint refuses on its own. One real key beside the typo is what
+    // gets past it, so this is the case the signature has to answer for.
+    expect(() =>
+      // @ts-expect-error 'nope' is not a member of JSON
+      tryWrap(JSON, { parse: {}, nope: {} }),
+    ).toThrow(
+      `[TryError]: Only methods and accessors can be captured. Property 'nope' not supported`,
+    );
+  });
+
   it('should expose getTryManager on the wrapped object', () => {
     const json = tryWrap(JSON, { parse: {} });
 
