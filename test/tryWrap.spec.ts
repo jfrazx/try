@@ -1,7 +1,7 @@
 import type { TryManager as TryManagerType } from '../src';
 import { TryManager } from '../src/manager';
 import { tryWrap, TryCatch, Try, CatchError } from '../src';
-import type { TryCatchExtension } from '../src';
+import type { TryCatchExtension, TryMembers } from '../src';
 
 const boom = Symbol('boom');
 
@@ -248,6 +248,31 @@ describe('tryWrap and the members it exposes', () => {
     );
   });
 
+  it('should accept a member map forwarded by a generic caller', () => {
+    // compiling is the assertion: the guard against a stray key hands back
+    // `unknown` for a map typed `TryMembers<T>`, whose keys provably belong,
+    // where a bare `Record` of an `Exclude` over a generic never simplifies
+    const forward = <T extends object>(target: T, members: TryMembers<T>) =>
+      tryWrap(target, members);
+
+    expect(
+      forward(JSON, { parse: { returnOnError: {} } }).try.parse('nope'),
+    ).toEqual({});
+  });
+
+  it('should keep a map checked with satisfies to the members it names', () => {
+    // an annotation would widen the map to every member of JSON; the directive
+    // only compiles while `satisfies` leaves it as written
+    const members = { parse: { returnOnError: {} } } satisfies TryMembers<JSON>;
+    const json = tryWrap(JSON, members);
+
+    expect(json.try.parse('nope')).toEqual({});
+    expect(() =>
+      // @ts-expect-error 'stringify' was never mapped
+      json.try.stringify({}),
+    ).toThrow(`Property 'stringify' does not exist in TryMap`);
+  });
+
   it('should expose getTryManager on the wrapped object', () => {
     const json = tryWrap(JSON, { parse: {} });
 
@@ -288,6 +313,29 @@ describe('tryWrap and a member that cannot be wrapped', () => {
     expect(() => tryWrap(target, { load: {} })).toThrow(
       `[TryError]: Only methods and accessors can be captured. Property 'load' not supported`,
     );
+  });
+});
+
+/**
+ * A type declaring `toString`, as `Date`, `URL` and many a class do, put that
+ * key in the member map's type, and TypeScript checks an object literal against
+ * it with the literal's own inherited `toString` — which is not an options
+ * object. No map for such a type compiled, whatever member it named.
+ */
+describe('tryWrap and a type declaring a member Object also has', () => {
+  it('should wrap a member of a type that declares toString', () => {
+    const date = tryWrap(new Date(0), { getTime: {} });
+
+    expect(date.try.getTime()).toBe(0);
+  });
+
+  it('should reject the shared member beside a real one at compile time', () => {
+    // one real key is what gets a literal past the constraint, so this is the
+    // case the signature's guard has to answer for, as with a typo
+    expect(() =>
+      // @ts-expect-error the .try map answers toString itself
+      tryWrap(new Date(0), { getTime: {}, toString: {} }),
+    ).toThrow(`Property 'toString' shares a name with one and would never catch`);
   });
 });
 
@@ -409,7 +457,13 @@ describe('tryWrap and a member the try map answers itself', () => {
       },
     };
 
-    expect(() => tryWrap(target, { toString: { returnOnError: 'caught' } })).toThrow(
+    // the directive is half the assertion: the map's type leaves out the names
+    // `Object` declares, so this is refused before it runs as well as when it
+    // does. The message is what JavaScript gets.
+    expect(() =>
+      // @ts-expect-error the .try map answers toString itself
+      tryWrap(target, { toString: { returnOnError: 'caught' } }),
+    ).toThrow(
       `[TryError]: The try map answers its own members before any catcher. Property 'toString' shares a name with one and would never catch — reach it on the target itself`,
     );
   });

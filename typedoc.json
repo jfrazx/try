@@ -1,5 +1,5 @@
 {
   "$schema": "https://typedoc.org/schema.json",
   "excludeInternal": true,
-  "intentionallyNotExported": ["TryConstruct"]
+  "intentionallyNotExported": ["TryConstruct", "Uninferred"]
 }

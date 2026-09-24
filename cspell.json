@@ -15,6 +15,7 @@
     "swcrc",
     "tryable",
     "tsdown",
+    "uninferred",
     "unittests",
     "wrappable"
   ],

@@ -22,19 +22,21 @@ import { isCaught } from '../catcher';
  * change its return type, so `.try` and `getTryManager()` are typed from the
  * member map.
  *
- * A key outside `keyof T` is a compile error, which the constraint on `M` does
- * not manage alone. `M` is inferred from the literal, and a literal sharing a
- * single key with `TryMembers<T>` satisfies it with every other key riding
- * along — so a typo beside a real member compiled. The parameter requires each
- * such key to be `never` as well, which no options object is.
+ * A key the map cannot take — one outside `keyof T`, or one of the names
+ * {@link TryMembers} leaves out — is a compile error, which the constraint on
+ * `M` does not manage alone. `M` is inferred from the literal, and a literal
+ * sharing a single key with `TryMembers<T>` satisfies it with every other key
+ * riding along — so a typo beside a real member compiled. The parameter
+ * requires each such key to be `never` as well, which no options object is.
  *
  * Both halves of that requirement are load-bearing. Intersecting a bare
  * `Record` of the stray keys costs an inline `runOnError` its parameter types,
  * and breaks a caller forwarding a `TryMembers<T>` of its own, whose stray keys
  * are an `Exclude` of a generic that never simplifies. The conditional hands
- * back `unknown` whenever every key belongs to `T`, which a forwarded map's
- * keys provably do. `NoInfer` keeps `M` inferred from the map rather than the
- * requirement — left out, a forwarded map infers `M` as `T` itself.
+ * back `unknown` whenever every key belongs to `TryMembers<T>`, which a
+ * forwarded map's keys provably do. `Uninferred` keeps `M` inferred from the
+ * map rather than the requirement — left out, a forwarded map infers `M` as `T`
+ * itself.
  *
  * @template T - the object being wrapped
  * @template M - the member map, which is what types `.try`
@@ -63,8 +65,10 @@ import { isCaught } from '../catcher';
 export function tryWrap<T extends object, M extends TryMembers<T>>(
   target: T,
   members: M &
-    NoInfer<
-      keyof M extends keyof T ? unknown : Record<Exclude<keyof M, keyof T>, never>
+    Uninferred<
+      keyof M extends keyof TryMembers<T>
+        ? unknown
+        : Record<Exclude<keyof M, keyof TryMembers<T>>, never>
     >,
   options: TryCatchOptions = {},
 ): Tryable<T, Extract<keyof M, keyof T>> {
@@ -248,3 +252,15 @@ const upChain = (
 
   return undefined;
 };
+
+/**
+ * Holds a type out of inference, as TypeScript 5.4's `NoInfer` does, in a form
+ * older compilers read.
+ *
+ * The built-in would set the published typings' floor at 5.4 for every
+ * consumer, decorators included, for the sake of one parameter: they compiled
+ * back to 4.9 before it. Indexing a one-element tuple by a conditional the
+ * compiler cannot resolve early is the long-standing way to get the same
+ * deferral, and the suite's forwarded-map test fails without it.
+ */
+type Uninferred<T> = [T][T extends any ? 0 : never];

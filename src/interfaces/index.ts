@@ -232,18 +232,34 @@ export interface TryOptions extends SharedOptions {
  * has the same type as `config: string` — so a data property is rejected at
  * runtime off its descriptor instead.
  *
+ * The names `Object` declares are left out. A type that declares one too —
+ * `toString` on a `Date`, a `URL`, a class of your own — would otherwise carry
+ * that key, and TypeScript checks an object literal against it with the
+ * literal's inherited `toString`, which is not an options object, so no map for
+ * such a type would compile, whatever member it named. Nothing is lost: the
+ * `.try` map answers those names itself before any catcher, which is why
+ * `tryWrap` refuses them at runtime. See
+ * {@link https://github.com/jfrazx/try/issues/34 | issue #34}.
+ *
+ * A map built ahead of the call keeps its own type with `satisfies`. Annotated
+ * as `TryMembers<T>` instead, it is widened to every member of `T`, and `.try`
+ * then types every one of them, mapped or not — the annotation is all the
+ * compiler has left to go on.
+ *
  * @template T - the object being wrapped
  *
  * @example
  * ```ts
  * import { tryWrap, type TryMembers } from '@status/try';
  *
- * const members: TryMembers<JSON> = { parse: { returnOnError: {} } };
+ * const members = { parse: { returnOnError: {} } } satisfies TryMembers<JSON>;
  *
  * tryWrap(JSON, members).try.parse('nope'); // {}
  * ```
  */
-export type TryMembers<T extends object> = { [K in keyof T]?: TryOptions };
+export type TryMembers<T extends object> = {
+  [K in Exclude<keyof T, keyof typeof Object.prototype>]?: TryOptions;
+};
 
 /**
  * Internal. One decorated member, queued at decoration time for registration

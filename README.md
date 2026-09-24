@@ -205,6 +205,16 @@ client.try.listUsers(); // compile error: not in the map
 tryWrap(apiClient, { fetchUsr: {} }); // compile error: not a member
 ```
 
+A map built ahead of the call keeps its own type with `satisfies`. Annotated as
+`TryMembers<…>` instead, it widens to every member, and `.try` types all of them
+whether they were mapped or not:
+
+```ts
+const members = { fetchUser: {} } satisfies TryMembers<typeof apiClient>;
+
+tryWrap(apiClient, members).try.listUsers(); // compile error: not in the map
+```
+
 A getter and a data property have the same type, so the map cannot exclude a
 data property. That one is rejected at runtime, off the descriptor:
 
