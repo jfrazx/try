@@ -98,6 +98,25 @@ describe('Try', () => {
     });
 
     /**
+     * `runOnError?:` accepts `undefined`, and the catcher calls whatever the
+     * merged options hold. Spread as given, an undefined one replaced the no-op
+     * default, and `.try` threw a `TypeError` while handling the error.
+     */
+    it('should fall back to the default runOnError when given undefined', () => {
+      interface Loader extends TryCatchExtension<Loader, 'load'> {}
+
+      @TryCatch<Loader>()
+      class Loader {
+        @Try<Loader>({ returnOnError: 'FALLBACK', runOnError: undefined })
+        load(): string {
+          throw new Error('boom');
+        }
+      }
+
+      expect(new Loader().try.load()).toBe('FALLBACK');
+    });
+
+    /**
      * A rejected promise is caught by attaching to the promise the member
      * returned, and what makes a return value a promise has to be a `catch`
      * that can be called. Optional call syntax guards `null` and `undefined`

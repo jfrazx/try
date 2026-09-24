@@ -130,6 +130,25 @@ describe('tryWrap on an instance you did not declare', () => {
 
       expect(client.try.fetchUser('7')).toBe('member');
     });
+
+    /**
+     * `runOnError?:` accepts `undefined`, so `runOnError: verbose ? log :
+     * undefined` type-checks. Spread as given, it replaced the no-op default —
+     * or the third argument's handler — with something the catcher then
+     * called, and `.try` threw a `TypeError` while handling the error.
+     */
+    it('should let an undefined runOnError fall back to the third argument', () => {
+      const seen: string[] = [];
+
+      const client = tryWrap(
+        new Client('example.com'),
+        { fetchUser: { returnOnError: null, runOnError: undefined } },
+        { runOnError: ({ property }) => void seen.push(property) },
+      );
+
+      expect(client.try.fetchUser('7')).toBeNull();
+      expect(seen).toEqual(['fetchUser']);
+    });
   });
 
   describe('a rejected promise', () => {
