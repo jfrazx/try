@@ -212,12 +212,16 @@ describe('tryWrap and a target that cannot be written to', () => {
 });
 
 describe('tryWrap and the members it exposes', () => {
-  it('should throw for a key that was never mapped', () => {
+  it('should reject a key that was never mapped', () => {
     const json = tryWrap(JSON, { parse: {} });
 
-    expect(() => (json.try as any).stringify('{}')).toThrow(
-      `[TryError]: Property 'stringify' does not exist in TryMap`,
-    );
+    // the directive is half the assertion: it only compiles while `.try`
+    // leaves a member out of its type when the map left it out. The message
+    // is what the same access does at runtime.
+    expect(() =>
+      // @ts-expect-error 'stringify' was never mapped
+      json.try.stringify('{}'),
+    ).toThrow(`[TryError]: Property 'stringify' does not exist in TryMap`);
   });
 
   it('should reject an unknown key at compile time', () => {
