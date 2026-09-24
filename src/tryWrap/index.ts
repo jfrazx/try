@@ -1,6 +1,7 @@
 import type { TryCatchOptions, TryMembers, Tryable } from '../interfaces';
-import { Handle } from '../handler/rules/interfaces';
+import { handledNames } from '../handler/rules/interfaces';
 import { TryHandler, isWrapper } from '../handler';
+import { upChain } from '../helpers';
 import { TryManager } from '../manager';
 import { isCaught } from '../catcher';
 
@@ -195,11 +196,11 @@ const rejectCaught = (prototype: object, property: PropertyKey): void => {
  * @throws if the target has either name
  */
 const rejectReservedNames = (target: object): void => {
-  const claimed = [Handle.Try, Handle.TryManager].find((name) => name in target);
+  const claimed = handledNames.find((name) => name in target);
 
   if (claimed) {
     throw new Error(
-      `[TryError]: tryWrap resolves 'try' and 'getTryManager' before the target sees them. Property '${claimed}' is declared on the target and would be unreachable through the wrapper — reach it on the target itself, or wrap an object that does not declare it`,
+      `[TryError]: tryWrap resolves 'try' and 'getTryManager' before the target sees them. Property '${String(claimed)}' is declared on the target and would be unreachable through the wrapper — reach it on the target itself, or wrap an object that does not declare it`,
     );
   }
 };
@@ -222,36 +223,6 @@ const descriptorSource = (target: object, property: PropertyKey): object =>
   upChain(target, (owner) =>
     Boolean(Object.getOwnPropertyDescriptor(owner, property)),
   ) ?? target;
-
-/**
- * The target and everything it inherits from, in order, up to the first that
- * answers.
- *
- * Both questions this file asks of a foreign object are about the whole chain
- * rather than the object itself — what declares a member, and whether a wrapper
- * stands anywhere in it — so the walk is written once and the predicate says
- * which question is being asked.
- *
- * @param target - the object to start from
- * @param found - what makes an object the answer
- * @returns the first object that answers, or nothing
- */
-const upChain = (
-  target: object,
-  found: (owner: object) => boolean,
-): object | undefined => {
-  for (
-    let owner: object | null = target;
-    owner;
-    owner = Object.getPrototypeOf(owner)
-  ) {
-    if (found(owner)) {
-      return owner;
-    }
-  }
-
-  return undefined;
-};
 
 /**
  * Holds a type out of inference, as TypeScript 5.4's `NoInfer` does, in a form

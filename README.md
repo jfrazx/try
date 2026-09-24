@@ -249,15 +249,18 @@ neither can affect the other, precisely because nothing is written to the target
   ([#34](https://github.com/jfrazx/try/issues/34)). `tryWrap` refuses such a
   member outright rather than returning a plausible wrong answer; on a decorated
   class it stays as described.
-- A builtin with internal slots — `Map`, `Set`, `Date`, `Promise`, a typed
-  array — must be reached through `.try`. A direct call through the wrapper
-  fails on the receiver, because `this` is the wrapper whatever the access handed
-  back:
+- A method that checks its receiver has to be called through `.try`. That is
+  every method of a builtin with internal slots — `Map`, `Set`, `Date`,
+  `Promise`, a typed array — and of any class using `#private` fields. Reading
+  or writing a property through the wrapper works, but a direct call fails on
+  the receiver, because `this` is the wrapper whatever the access handed back
+  ([#57](https://github.com/jfrazx/try/issues/57)):
 
   ```ts
   const map = tryWrap(new Map([['a', 1]]), { get: {} });
 
   map.try.get('a'); // 1
+  map.size; // 1
   map.get('a'); // TypeError: called on incompatible receiver
   ```
 

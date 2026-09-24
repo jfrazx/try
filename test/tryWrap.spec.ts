@@ -584,6 +584,91 @@ describe('tryWrap and a write through the wrapper', () => {
     expect(target.label).toBe('set through the wrapper');
     expect(wrapped.label).toBe('set through the wrapper');
   });
+
+  /**
+   * An object inheriting from the wrapper reaches the `set` trap for any name
+   * it does not own yet. Forwarding that with the target as receiver put the
+   * write on the target, where everything else holding the reference could see
+   * it, which is the leak this trap exists to prevent.
+   */
+  it('should leave a write through an inheriting object on that object', () => {
+    const { target, wrapped } = build();
+    const heir = Object.create(wrapped);
+
+    heir.label = 'set on the heir';
+
+    expect(Object.hasOwn(heir, 'label')).toBe(true);
+    expect('label' in target).toBe(false);
+  });
+
+  it('should let an inheriting object own a try of its own', () => {
+    const { target, wrapped } = build();
+    const heir = Object.create(wrapped);
+
+    // it lands on the heir and is read back from there, before the wrapper is
+    // ever reached, so nothing about it is unreadable or shared
+    heir.try = 'the heir owns this';
+
+    expect(heir.try).toBe('the heir owns this');
+    expect('try' in target).toBe(false);
+  });
+
+  /**
+   * A definition never reaches the `set` trap, and one made on the wrapper
+   * always lands on the target — so without a trap of its own, the name `set`
+   * refuses could be planted by the other route.
+   */
+  it('should refuse to define try through the wrapper', () => {
+    const { target, wrapped } = build();
+
+    expect(() =>
+      Object.defineProperty(wrapped, 'try', { value: 'x', configurable: true }),
+    ).toThrow(`Property 'try' would be set on the target`);
+
+    expect('try' in target).toBe(false);
+  });
+
+  it('should pass an ordinary definition through to the target', () => {
+    const { target, wrapped } = build();
+
+    Object.defineProperty(wrapped, 'label', { value: 'defined', enumerable: true });
+
+    expect(target.label).toBe('defined');
+  });
+
+  it('should read an inherited getter against the object reading it', () => {
+    const target = {
+      name: 'target',
+      get label(): string {
+        return this.name;
+      },
+    };
+    const heir = Object.create(tryWrap(target, { label: {} }), {
+      name: { value: 'heir' },
+    });
+
+    expect(heir.label).toBe('heir');
+  });
+
+  /**
+   * Where `.try` and an ordinary access part ways. Both use the target for the
+   * wrapper itself; only `.try` does for an object inheriting from it, since a
+   * catcher run against that object would hand a builtin the one it rejects.
+   */
+  it('should run .try on an inheriting object against the target', () => {
+    const target = {
+      name: 'target',
+      ident(): string {
+        return this.name;
+      },
+    };
+    const heir = Object.create(tryWrap(target, { ident: {} }), {
+      name: { value: 'heir' },
+    });
+
+    expect(heir.try.ident()).toBe('target');
+    expect(heir.ident()).toBe('heir');
+  });
 });
 
 /**
@@ -651,13 +736,47 @@ describe('tryWrap and a symbol-named member', () => {
 });
 
 /**
- * Documents a limitation, not a guarantee.
+ * A read or write made on the wrapper itself is forwarded with the target as
+ * its receiver, so a builtin's own getter or setter sees the object it insists
+ * on. Forwarding the wrapper instead threw `incompatible receiver` on a plain
+ * `map.size`, with nothing there to catch it, though `size` was never mapped.
+ */
+describe('a read or write through a wrapped builtin', () => {
+  it('should read an accessor against the target', () => {
+    const map = tryWrap(new Map([['a', 1]]), { get: {} });
+
+    expect(map.size).toBe(1);
+  });
+
+  /**
+   * A proxy placed around the wrapper — a logging proxy, a reactive store —
+   * arrives as the receiver too. It stands in front of the wrapper rather than
+   * inheriting from it, so it is forwarded the same way the wrapper is.
+   */
+  it('should read an accessor through a proxy standing in front of the wrapper', () => {
+    const outer = new Proxy(tryWrap(new Map([['a', 1]]), { get: {} }), {});
+
+    expect(outer.size).toBe(1);
+  });
+
+  it('should write through an accessor against the target', () => {
+    const url = tryWrap(new URL('https://example.com/a'), { toJSON: {} });
+
+    url.pathname = '/b';
+
+    expect(url.pathname).toBe('/b');
+    expect(url.try.toJSON()).toBe('https://example.com/b');
+  });
+});
+
+/**
+ * Documents a limitation, not a guarantee — issue #57.
  *
- * Resolving the receiver to the raw target fixes the `.try` path, and cannot fix
- * the direct one: `wrapped.get('a')` is a method call on the wrapper, so `this`
- * is the wrapper whatever the access handed back. A builtin rejects that, and
- * nothing catches it here — a direct call is meant to throw, so the throw
- * arrives as designed, just with the wrong error in it.
+ * Resolving the receiver to the raw target fixes `.try`, and an ordinary read
+ * or write, and cannot fix a direct call: `wrapped.get('a')` is a method call
+ * on the wrapper, so `this` is the wrapper whatever the access handed back. A
+ * builtin rejects that, and nothing catches it here — a direct call is meant to
+ * throw, so the throw arrives as designed, just with the wrong error in it.
  *
  * Reach a builtin's members through `.try`, or hold the target itself for the
  * calls that should throw.
@@ -670,5 +789,20 @@ describe('a direct call through a wrapped builtin', () => {
       'Method Map.prototype.get called on incompatible receiver',
     );
     expect(map.try.get('a')).toBe(1);
+  });
+
+  it('should fail the same way on a class with private fields', () => {
+    class Sdk {
+      #key = 'key';
+
+      send(): string {
+        return this.#key;
+      }
+    }
+
+    const sdk = tryWrap(new Sdk(), { send: {} });
+
+    expect(() => sdk.send()).toThrow('Cannot read private member');
+    expect(sdk.try.send()).toBe('key');
   });
 });

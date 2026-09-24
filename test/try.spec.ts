@@ -233,4 +233,20 @@ describe('Try', () => {
       expect(errors).toEqual([]);
     });
   });
+
+  /**
+   * A decorated instance leaves writes to the platform. The write traps that
+   * refuse `try` and `getTryManager` belong to a `tryWrap` wrapper, whose
+   * target other code shares. Here `this.count++` inside a member runs through
+   * the wrapper as well, and trapping every write cost about five times an
+   * untrapped one, to guard two names nothing reads back through the wrapper.
+   */
+  describe('a write through a decorated instance', () => {
+    it('should let a write of try land on the instance, untrapped', () => {
+      (gambler as any).try = 'written';
+
+      expect(Object.getOwnPropertyDescriptor(gambler, 'try')?.value).toBe('written');
+      expect(gambler.try.success()).toBe('success');
+    });
+  });
 });

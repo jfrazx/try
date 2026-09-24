@@ -296,11 +296,11 @@ export interface RegistrationOptions extends TryOptions {
  * catches, and a derived object reading `.try` runs against itself.
  *
  * `raw` is {@link tryWrap}. A foreign object's method should see that object as
- * `this`, and a builtin with internal slots — `Map`, `Set`, `Date`, `WeakMap`,
- * `Promise`, a typed array — insists on it: handed a Proxy it throws
- * `incompatible receiver`, which the catcher then catches. Every successful
- * call would come back as the fallback, so a wrapped `Map` would report every
- * key as missing.
+ * `this`, and some insist on it: a builtin with internal slots — `Map`, `Set`,
+ * `Date`, `WeakMap`, `Promise`, a typed array — and any class using `#private`
+ * fields. Handed a Proxy, those throw, and the catcher then catches it. Every
+ * successful call would come back as the fallback, so a wrapped `Map` would
+ * report every key as missing.
  */
 export type TryReceiver = 'proxy' | 'raw';
 
