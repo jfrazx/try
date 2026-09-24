@@ -168,5 +168,69 @@ describe('Try', () => {
       expect(reads).toBe(1);
       expect(errors).toEqual([]);
     });
+
+    /**
+     * The function that read produced is applied rather than asked to call
+     * itself. `attach.call(...)` looks `call` up on the function, and a
+     * function can carry its own, so a callable `catch` whose `call` had been
+     * replaced threw inside the catcher and a successful call came back as the
+     * fallback. Calling it as a method looks nothing up, and neither does
+     * applying it.
+     */
+    it('should call a returned catch whose own call has been replaced', () => {
+      const errors: string[] = [];
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          const value = {
+            catch: Object.assign(
+              function (this: unknown) {
+                return this === value ? 'ATTACHED' : 'DETACHED';
+              },
+              { call: 'not a function' },
+            ),
+          };
+
+          return value;
+        }
+      }
+
+      expect(new Payload().try.load()).toBe('ATTACHED');
+      expect(errors).toEqual([]);
+    });
+
+    /**
+     * A `catch` that answers with nothing leaves the member's own return value
+     * in place. A promise's `catch` always hands back a promise; one answering
+     * `undefined` or `null` belongs to something else, and the caller is owed
+     * what the member returned rather than nothing.
+     */
+    it('should hand back the value when its catch returns nothing', () => {
+      const errors: string[] = [];
+      const returned = { catch() {}, data: 7 };
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          return returned;
+        }
+      }
+
+      expect(new Payload().try.load()).toBe(returned);
+      expect(errors).toEqual([]);
+    });
   });
 });

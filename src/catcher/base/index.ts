@@ -43,13 +43,27 @@ export abstract class ErrorCatcher<
    * accessor pass the check and then answer the call with something else —
    * the same fabricated error by another road — and runs a getter's side
    * effects twice. Promise resolution reads `then` once for the same reason.
+   *
+   * It is applied rather than asked to call itself. `attach.call(...)` looks
+   * `call` up on the function, and a function can carry its own, which puts
+   * the fabricated error back within reach. Calling it as a method looks
+   * nothing up, and neither does applying it.
+   *
+   * A `catch` that answers with nothing leaves the member's own return value
+   * in place. A promise's `catch` always hands back a promise; one answering
+   * `undefined` or `null` belongs to something else, and the caller is owed
+   * what the member returned rather than nothing.
    */
   private catchReturn(returnValue: any, args: any[]): any {
     const attach = returnValue?.catch;
 
-    return isFunction(attach)
-      ? attach.call(returnValue, (error: Error) => this.onError(error, args))
-      : returnValue;
+    if (!isFunction(attach)) {
+      return returnValue;
+    }
+
+    const handler = (error: Error) => this.onError(error, args);
+
+    return Reflect.apply(attach, returnValue, [handler]) ?? returnValue;
   }
 
   get alwaysCatch(): boolean {
