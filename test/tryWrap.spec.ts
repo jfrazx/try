@@ -458,6 +458,26 @@ describe('tryWrap on something already wrapped', () => {
       }),
     ).toThrow(`or one that inherits from a wrapper`);
   });
+
+  /**
+   * Documents a limitation, not a guarantee. A proxy placed in front of a
+   * wrapper is neither the wrapper nor anything inheriting from it, and nothing
+   * portable tells it from any other proxy, so it is accepted. The catchers
+   * then run against that proxy, which fails because of the proxy rather than
+   * the nesting: one in front of a bare `Map` comes back the same way.
+   */
+  it('should not see through a proxy placed in front of a wrapper', () => {
+    const inner = tryWrap(new Map([['a', 1]]), { get: {} });
+    const nested = tryWrap(new Proxy(inner, {}), {
+      get: { returnOnError: 'FALLBACK' },
+    });
+    const bare = tryWrap(new Proxy(new Map([['a', 1]]), {}), {
+      get: { returnOnError: 'FALLBACK' },
+    });
+
+    expect(nested.try.get('a')).toBe('FALLBACK');
+    expect(bare.try.get('a')).toBe('FALLBACK');
+  });
 });
 
 /**
@@ -776,6 +796,12 @@ describe('a read or write through a wrapped builtin', () => {
     const outer = new Proxy(tryWrap(new Map([['a', 1]]), { get: {} }), {});
 
     expect(outer.size).toBe(1);
+  });
+
+  it('should catch through a proxy standing in front of the wrapper', () => {
+    const outer = new Proxy(tryWrap(new Map([['a', 1]]), { get: {} }), {});
+
+    expect(outer.try.get('a')).toBe(1);
   });
 
   it('should write through an accessor against the target', () => {

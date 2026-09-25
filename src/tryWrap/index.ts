@@ -122,9 +122,14 @@ export function tryWrap<T extends object, M extends TryMembers<T>>(
  * against an object that is not the one the inner wrapper stands in front of,
  * which is the same corruption arriving by a longer road.
  *
- * This says nothing about a target that merely inherits a builtin's methods
- * without its internal slots — `Object.create(new Map())` — which fails the
- * same way and cannot be told apart from an ordinary subclass here.
+ * This says nothing about a target that merely has a builtin's methods without
+ * its internal slots, which fails the same way and cannot be told apart here:
+ * `Object.create(new Map())`, which looks like an ordinary subclass, or a proxy
+ * placed in front of a builtin. That includes a proxy placed in front of a
+ * wrapper. It is neither the wrapper nor anything inheriting from it, and
+ * nothing portable tells it from any other proxy. The catchers then run against
+ * that proxy, and fail because of the proxy rather than the nesting: one in
+ * front of a bare `Map` fails identically.
  *
  * @throws if the target, or anything it inherits from, is a wrapper
  */

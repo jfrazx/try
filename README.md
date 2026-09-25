@@ -266,6 +266,18 @@ neither can affect the other, precisely because nothing is written to the target
 
   Hold the target itself for the calls that are meant to throw.
 
+- A target behind a proxy is not seen through, and that includes a proxy in
+  front of a wrapper, which is not taken for one. `.try` runs each member
+  against the proxy, so a method that checks its receiver fails on every call
+  and comes back as the fallback. Put the proxy around the wrapper instead:
+
+  ```ts
+  const store = new Proxy(tryWrap(new Map([['a', 1]]), { get: {} }), {});
+
+  store.try.get('a'); // 1
+  store.size; // 1
+  ```
+
 - A member returning `this` returns the target, not the wrapper, so `.try` does
   not chain on a fluent API:
 
