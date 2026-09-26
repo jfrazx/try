@@ -16,3 +16,10 @@ export enum Handle {
   Try = 'try',
   TryManager = 'getTryManager',
 }
+
+/**
+ * Every name in {@link Handle}: the ones the wrapper answers itself, and so
+ * refuses to let anything define on the object behind it. Derived from the enum
+ * so that a name added there is refused everywhere at once.
+ */
+export const handledNames: readonly PropertyKey[] = Object.values(Handle);

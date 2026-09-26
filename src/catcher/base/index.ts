@@ -1,5 +1,6 @@
 import type { CatchError, TryCatchBinding, TryCatchPrepare } from '../interfaces';
 import type { OptionsContainer } from '../../options';
+import { isFunction } from '../../helpers';
 
 /** Runs a decorated member inside try/catch and applies the resolved options to whatever it throws or returns. */
 export abstract class ErrorCatcher<
@@ -24,11 +25,45 @@ export abstract class ErrorCatcher<
     }
   }
 
+  /**
+   * A rejected promise is caught by attaching to the promise the member
+   * returned, so an async member resolves the same options a synchronous one
+   * does.
+   *
+   * `catch` is confirmed callable rather than merely present. Optional call
+   * syntax guards `null` and `undefined` alone, so an ordinary object carrying
+   * a `catch` key threw a `TypeError` from inside this method — which the try
+   * block above then caught and reported as though the member had failed. A
+   * successful call came back as the fallback, with `runOnError` fired on a
+   * fabricated error. `JSON.parse('{"catch": 1}')` is enough to do it, and
+   * nothing about the returned data is under the caller's control.
+   *
+   * It is read once, and what that read produced is what gets called, against
+   * the value that carried it. Reading it again to make the call lets an
+   * accessor pass the check and then answer the call with something else —
+   * the same fabricated error by another road — and runs a getter's side
+   * effects twice. Promise resolution reads `then` once for the same reason.
+   *
+   * It is applied rather than asked to call itself. `attach.call(...)` looks
+   * `call` up on the function, and a function can carry its own, which puts
+   * the fabricated error back within reach. Calling it as a method looks
+   * nothing up, and neither does applying it.
+   *
+   * A `catch` that answers with nothing leaves the member's own return value
+   * in place. A promise's `catch` always hands back a promise; one answering
+   * `undefined` or `null` belongs to something else, and the caller is owed
+   * what the member returned rather than nothing.
+   */
   private catchReturn(returnValue: any, args: any[]): any {
-    return (
-      returnValue?.catch?.((error: Error) => this.onError(error, args)) ??
-      returnValue
-    );
+    const attach = returnValue?.catch;
+
+    if (!isFunction(attach)) {
+      return returnValue;
+    }
+
+    const handler = (error: Error) => this.onError(error, args);
+
+    return Reflect.apply(attach, returnValue, [handler]) ?? returnValue;
   }
 
   get alwaysCatch(): boolean {

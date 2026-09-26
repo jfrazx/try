@@ -1,3 +1,4 @@
+import type { TryCatchExtension } from '../src';
 import { Gambler } from './lib/gambler';
 import { TryCatch, Try } from '../src';
 
@@ -94,6 +95,177 @@ describe('Try', () => {
       const success = gambler.try.successUndefined();
 
       expect(success).toBeUndefined();
+    });
+
+    /**
+     * `runOnError?:` accepts `undefined`, and the catcher calls whatever the
+     * merged options hold. Spread as given, an undefined one replaced the no-op
+     * default, and `.try` threw a `TypeError` while handling the error.
+     */
+    it('should fall back to the default runOnError when given undefined', () => {
+      interface Loader extends TryCatchExtension<Loader, 'load'> {}
+
+      @TryCatch<Loader>()
+      class Loader {
+        @Try<Loader>({ returnOnError: 'FALLBACK', runOnError: undefined })
+        load(): string {
+          throw new Error('boom');
+        }
+      }
+
+      expect(new Loader().try.load()).toBe('FALLBACK');
+    });
+
+    /**
+     * A rejected promise is caught by attaching to the promise the member
+     * returned, and what makes a return value a promise has to be a `catch`
+     * that can be called. Optional call syntax guards `null` and `undefined`
+     * alone, so an ordinary object carrying a `catch` key threw a `TypeError`
+     * from inside the catcher, which the catcher's own try block then caught:
+     * a successful call came back as the fallback, with `runOnError` fired on
+     * an error nothing raised.
+     */
+    it('should hand back a value carrying a non-callable catch key', () => {
+      const errors: string[] = [];
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          return { catch: 'not a function', data: 7 };
+        }
+      }
+
+      expect(new Payload().try.load()).toEqual({
+        catch: 'not a function',
+        data: 7,
+      });
+      expect(errors).toEqual([]);
+    });
+
+    /**
+     * `catch` is read once, and the function that read produced is the one
+     * called, against the value that carried it. Reading it a second time to
+     * make the call lets an accessor pass the check and then answer the call
+     * with something else, and runs a getter's side effects twice.
+     */
+    it('should read a returned catch once and call it on its owner', () => {
+      const errors: string[] = [];
+      let reads = 0;
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          const value = {
+            get catch() {
+              reads += 1;
+
+              return reads === 1
+                ? function (this: unknown) {
+                    return this === value ? 'ATTACHED' : 'DETACHED';
+                  }
+                : 'no longer a function';
+            },
+          };
+
+          return value;
+        }
+      }
+
+      expect(new Payload().try.load()).toBe('ATTACHED');
+      expect(reads).toBe(1);
+      expect(errors).toEqual([]);
+    });
+
+    /**
+     * The function that read produced is applied rather than asked to call
+     * itself. `attach.call(...)` looks `call` up on the function, and a
+     * function can carry its own, so a callable `catch` whose `call` had been
+     * replaced threw inside the catcher and a successful call came back as the
+     * fallback. Calling it as a method looks nothing up, and neither does
+     * applying it.
+     */
+    it('should call a returned catch whose own call has been replaced', () => {
+      const errors: string[] = [];
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          const value = {
+            catch: Object.assign(
+              function (this: unknown) {
+                return this === value ? 'ATTACHED' : 'DETACHED';
+              },
+              { call: 'not a function' },
+            ),
+          };
+
+          return value;
+        }
+      }
+
+      expect(new Payload().try.load()).toBe('ATTACHED');
+      expect(errors).toEqual([]);
+    });
+
+    /**
+     * A `catch` that answers with nothing leaves the member's own return value
+     * in place. A promise's `catch` always hands back a promise; one answering
+     * `undefined` or `null` belongs to something else, and the caller is owed
+     * what the member returned rather than nothing.
+     */
+    it('should hand back the value when its catch returns nothing', () => {
+      const errors: string[] = [];
+      const returned = { catch() {}, data: 7 };
+
+      interface Payload extends TryCatchExtension<Payload, 'load'> {}
+
+      @TryCatch<Payload>()
+      class Payload {
+        @Try<Payload>({
+          returnOnError: 'FALLBACK',
+          runOnError: ({ error }) => void errors.push(error.message),
+        })
+        load(): unknown {
+          return returned;
+        }
+      }
+
+      expect(new Payload().try.load()).toBe(returned);
+      expect(errors).toEqual([]);
+    });
+  });
+
+  /**
+   * A decorated instance leaves writes to the platform. The write traps that
+   * refuse `try` and `getTryManager` belong to a `tryWrap` wrapper, whose
+   * target other code shares. Here `this.count++` inside a member runs through
+   * the wrapper as well, and trapping every write cost about five times an
+   * untrapped one, to guard two names nothing reads back through the wrapper.
+   */
+  describe('a write through a decorated instance', () => {
+    it('should let a write of try land on the instance, untrapped', () => {
+      (gambler as any).try = 'written';
+
+      expect(Object.getOwnPropertyDescriptor(gambler, 'try')?.value).toBe('written');
+      expect(gambler.try.success()).toBe('success');
     });
   });
 });

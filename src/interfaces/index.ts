@@ -219,6 +219,49 @@ export interface TryOptions extends SharedOptions {
 }
 
 /**
+ * The members {@link tryWrap} should make catchable, each with its own
+ * {@link TryOptions}.
+ *
+ * Every key is optional and every key has to be a member of `T`, so a typo is a
+ * compile error rather than a member that silently never catches. The map is
+ * also what types the resulting `.try`, which is why `tryWrap` needs none of
+ * the declaration merging the decorators do.
+ *
+ * Keys cannot be narrowed to callable members only. A getter and a data
+ * property are indistinguishable to the type system — `get config(): string`
+ * has the same type as `config: string` — so a data property is rejected at
+ * runtime off its descriptor instead.
+ *
+ * The names `Object` declares are left out. A type that declares one too —
+ * `toString` on a `Date`, a `URL`, a class of your own — would otherwise carry
+ * that key, and TypeScript checks an object literal against it with the
+ * literal's inherited `toString`, which is not an options object, so no map for
+ * such a type would compile, whatever member it named. Nothing is lost: the
+ * `.try` map answers those names itself before any catcher, which is why
+ * `tryWrap` refuses them at runtime. See
+ * {@link https://github.com/jfrazx/try/issues/34 | issue #34}.
+ *
+ * A map built ahead of the call keeps its own type with `satisfies`. Annotated
+ * as `TryMembers<T>` instead, it is widened to every member of `T`, and `.try`
+ * then types every one of them, mapped or not — the annotation is all the
+ * compiler has left to go on.
+ *
+ * @template T - the object being wrapped
+ *
+ * @example
+ * ```ts
+ * import { tryWrap, type TryMembers } from '@status/try';
+ *
+ * const members = { parse: { returnOnError: {} } } satisfies TryMembers<JSON>;
+ *
+ * tryWrap(JSON, members).try.parse('nope'); // {}
+ * ```
+ */
+export type TryMembers<T extends object> = {
+  [K in Exclude<keyof T, keyof typeof Object.prototype>]?: TryOptions;
+};
+
+/**
  * Internal. One decorated member, queued at decoration time for registration
  * when the class decorator runs.
  *
@@ -243,6 +286,23 @@ export interface DecoratedEventMap<T extends object, K extends keyof T> {
 export interface RegistrationOptions extends TryOptions {
   alwaysCatch: boolean;
 }
+
+/**
+ * Internal. Which object a catcher runs the original against, decided per
+ * wrapped object rather than library-wide.
+ *
+ * `proxy` is the decorator path. `this` inside a decorated member stays
+ * proxy-transparent, so another decorated member reached through it still
+ * catches, and a derived object reading `.try` runs against itself.
+ *
+ * `raw` is {@link tryWrap}. A foreign object's method should see that object as
+ * `this`, and some insist on it: a builtin with internal slots — `Map`, `Set`,
+ * `Date`, `WeakMap`, `Promise`, a typed array — and any class using `#private`
+ * fields. Handed a Proxy, those throw, and the catcher then catches it. Every
+ * successful call would come back as the fallback, so a wrapped `Map` would
+ * report every key as missing.
+ */
+export type TryReceiver = 'proxy' | 'raw';
 
 /** Internal. The rule contract used by the handler and catcher chains: test, then act. */
 export interface ShouldHandle {

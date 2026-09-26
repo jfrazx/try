@@ -4,7 +4,8 @@ Automatically catch errors on object methods and accessors.
 
 `try`/`catch` blocks tend to pile up around the calls most likely to fail, until
 the error handling outweighs the work. This library moves that handling onto the
-declaration with a decorator, and lets the call site stay a call site.
+declaration with a decorator, and lets the call site stay a call site. For an
+object you did not declare, `tryWrap` does the same without one.
 
 ## Install
 
@@ -137,6 +138,163 @@ new Config().parse('not json'); // null
 ```
 
 The tradeoff: no `.try` map, and no `getTryManager()`. It is the lighter tool.
+
+## Objects you did not declare
+
+Every decorator above needs the declaration site. `tryWrap` is for the objects
+that do not have one you control — `JSON`, `Math`, an SDK client, a driver, a
+factory's object literal, `localStorage`.
+
+It takes the target and a map of the members to make catchable:
+
+```ts
+import { tryWrap } from '@status/try';
+
+const json = tryWrap(JSON, {
+  parse: { returnOnError: {} },
+});
+
+json.parse('nope'); // throws SyntaxError
+json.try.parse('nope'); // {}
+json.try.parse('{"a":"b"}'); // { a: 'b' }
+```
+
+`.try`-map semantics only, matching `@Try`: the member keeps throwing on a
+direct call, and the call through `.try` is what catches. That is deliberate
+rather than a missing feature — other code holds the same reference and has its
+own expectations about whether the member throws.
+
+The target is never written to. Each member is registered as catching through
+`.try` alone, so nothing is installed on the object and a frozen or sealed one
+wraps as readily as any other. What comes back stands in front of the target and
+is not the target, so `tryWrap(JSON, …) !== JSON` and `JSON.parse` keeps
+throwing for everyone else.
+
+A third argument supplies defaults for every member, mirroring `@TryCatch()`,
+and a member's own options win — the same precedence `@Try()` has over
+`@TryCatch()`:
+
+```ts
+const client = tryWrap(
+  apiClient,
+  {
+    fetchUser: { returnOnError: null },
+    listUsers: { returnOnError: [] },
+  },
+  {
+    runOnError: ({ property, error }) => log.warn(`${property}: ${error.message}`),
+  },
+);
+```
+
+Inherited members are the normal case rather than the exception — `new Map().get`
+is declared on `Map.prototype` — so the member is resolved off the prototype
+chain.
+
+### Types come for free
+
+A decorator cannot change the type of what it decorates, which is why `.try`
+needs declaration merging. A function can, so `tryWrap` needs none of it: the
+member map is what types the result.
+
+```ts
+const client = tryWrap(apiClient, { fetchUser: {} });
+
+client.try.fetchUser('7'); // typed from apiClient
+client.try.listUsers(); // compile error: not in the map
+tryWrap(apiClient, { fetchUsr: {} }); // compile error: not a member
+```
+
+A map built ahead of the call keeps its own type with `satisfies`. Annotated as
+`TryMembers<…>` instead, it widens to every member, and `.try` types all of them
+whether they were mapped or not:
+
+```ts
+const members = { fetchUser: {} } satisfies TryMembers<typeof apiClient>;
+
+tryWrap(apiClient, members).try.listUsers(); // compile error: not in the map
+```
+
+A getter and a data property have the same type, so the map cannot exclude a
+data property. That one is rejected at runtime, off the descriptor:
+
+```ts
+tryWrap({ config: 1 }, { config: {} });
+// [TryError]: Only methods and getters can be captured.
+// Property 'config' holds a value that is not a function
+```
+
+### What it refuses
+
+Two cases are rejected as the wrapper is built rather than left to surface later:
+
+- **a target that already has a `try` or `getTryManager` member.** Both names are
+  resolved before anything reaches the target, so the member would be left
+  unreachable with nothing said. The author of a decorated class can rename
+  theirs; whoever was handed an SDK client cannot.
+- **a target that is already wrapped**, including a `@TryCatch` instance. The
+  outer catchers would run against the inner wrapper rather than the target.
+
+Wrapping the same **raw** target twice is fine. Each call gets its own map and
+neither can affect the other, precisely because nothing is written to the target.
+
+### Known limitations
+
+- `.try` covers the members of `T` the type knows about, so a member that exists
+  at runtime but not in the type cannot be named
+  ([#43](https://github.com/jfrazx/try/issues/43)).
+- A member whose name is already `in` the `.try` map — `toString`, `valueOf`,
+  `constructor` — is shadowed by the map rather than caught, and a string-named
+  protocol probe such as `toJSON` throws like a typo would
+  ([#34](https://github.com/jfrazx/try/issues/34)). `tryWrap` refuses such a
+  member outright rather than returning a plausible wrong answer; on a decorated
+  class it stays as described.
+- A method that checks its receiver has to be called through `.try`. That is
+  every method of a builtin with internal slots — `Map`, `Set`, `Date`,
+  `Promise`, a typed array — and of any class using `#private` fields. Reading
+  or writing a property through the wrapper works, but a direct call fails on
+  the receiver, because `this` is the wrapper whatever the access handed back
+  ([#57](https://github.com/jfrazx/try/issues/57)):
+
+  ```ts
+  const map = tryWrap(new Map([['a', 1]]), { get: {} });
+
+  map.try.get('a'); // 1
+  map.size; // 1
+  map.get('a'); // TypeError: called on incompatible receiver
+  ```
+
+  Hold the target itself for the calls that are meant to throw.
+
+- A target behind a proxy is not seen through, and that includes a proxy in
+  front of a wrapper, which is not taken for one. `.try` runs each member
+  against the proxy, so a method that checks its receiver fails on every call
+  and comes back as the fallback. Put the proxy around the wrapper instead:
+
+  ```ts
+  const store = new Proxy(tryWrap(new Map([['a', 1]]), { get: {} }), {});
+
+  store.try.get('a'); // 1
+  store.size; // 1
+  ```
+
+- A member returning `this` returns the target, not the wrapper, so `.try` does
+  not chain on a fluent API:
+
+  ```ts
+  const map = tryWrap(new Map(), { set: {} });
+
+  map.try.set('a', 1).try; // undefined — set returned the raw Map
+  ```
+
+  Keep the wrapper in a variable and start each call from it.
+
+- What the wrapper covers is fixed when it is built. A member reassigned
+  afterwards — a re-initialized SDK client, a `jest.spyOn`, a monkey patch —
+  leaves `.try` running the implementation that was there at wrap time while a
+  direct call runs the new one. A `try` or `getTryManager` the target gains
+  afterwards is shadowed with nothing said, since the wrapper can only refuse
+  names the target already had. Wrap again after mutating the target.
 
 ## Accessors and async
 
@@ -449,6 +607,9 @@ anything absent from the map throws rather than returning `undefined`.
 `Tryable<T, K>` is available as shorthand for `T & TryCatchExtension<T, K>`
 where an intersection reads better than a merged interface.
 
+`tryWrap` needs none of this, because a function can change its return type —
+see [Objects you did not declare](#objects-you-did-not-declare).
+
 ## Exports
 
 | Export              |                                                            |
@@ -457,7 +618,9 @@ where an intersection reads better than a merged interface.
 | `Try`               | catches only through `.try`                                |
 | `Catch`             | always catches; registered on the class, so also on `.try` |
 | `CatchError`        | always catches; standalone                                 |
+| `tryWrap`           | makes members of an object you did not declare catchable   |
 | `TryOptions`        | `returnOnError`, `runOnError`                              |
+| `TryMembers`        | the member map `tryWrap` takes                             |
 | `TryCatchOptions`   | `runOnError`                                               |
 | `TryError`          | what `runOnError` receives                                 |
 | `TryCatchExtension` | the `.try` + `getTryManager()` shape                       |
