@@ -64,7 +64,7 @@
     "@swc/core": "^1.16.2",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.18.0",
+    "@types/node": "^24.0.0",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.12.0",
