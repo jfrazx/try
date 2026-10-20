@@ -5,7 +5,8 @@ Automatically catch errors on object methods and accessors.
 `try`/`catch` blocks tend to pile up around the calls most likely to fail, until
 the error handling outweighs the work. This library moves that handling onto the
 declaration with a decorator, and lets the call site stay a call site. For an
-object you did not declare, `tryWrap` does the same without one.
+object you did not declare, `tryWrap` does the same without one, and for a class
+you did not write, `tryClass` does it for every instance.
 
 ## Install
 
@@ -295,6 +296,139 @@ neither can affect the other, precisely because nothing is written to the target
   direct call runs the new one. A `try` or `getTryManager` the target gains
   afterwards is shadowed with nothing said, since the wrapper can only refuse
   names the target already had. Wrap again after mutating the target.
+
+## Classes you did not write
+
+`tryWrap` covers an object you were handed. A class you import and construct
+yourself would need wrapping at every construction site. `tryClass` wraps the
+class once, and every instance of what comes back carries its own `.try`:
+
+```ts
+import { tryClass } from '@status/try';
+
+const Client = tryClass(ThirdPartyClient, {
+  connect: {},
+  url: { returnOnError: '' },
+});
+
+const client = new Client(host);
+
+client.connect(); // throws
+client.try.connect(); // null
+```
+
+The member map, its options and the third argument work exactly as they do for
+`tryWrap`, and the map types `.try` the same way. Members are resolved off the
+class's prototype, so one declared on a base class works too.
+
+What comes back is a new class standing in front of the original. `instanceof`
+still holds, but identity does not — `Client !== ThirdPartyClient` — so a
+subclass should extend whichever of the two you mean. The original is never
+written to, and constructing it directly is unaffected.
+
+`.try` and `getTryManager()` are defined on each instance as it is built, rather
+than answered by a proxy standing in front of it. Everything else is the
+instance the original class built, so a direct call — one reading a `#private`
+field included — runs exactly as it did before. Neither name is enumerable, so
+`Object.keys`, spread and `JSON.stringify` see what they saw before, and neither
+can be reassigned.
+
+### Subclasses
+
+A subclass of the result is covered too, and its overrides are caught. Each
+subclass resolves the member map against its own prototype the first time it
+is constructed, so `.try` runs the same implementation a direct call does:
+
+```ts
+class LoggedClient extends Client {
+  override connect(): void {
+    log.info('connecting');
+    super.connect();
+  }
+}
+
+new LoggedClient(host).try.connect(); // logs, then null
+```
+
+A subclass decorated with `@TryCatch` composes with it: its `.try` answers for
+its own `@Try` and `@Catch` members and for the members mapped on the base, and
+so does anything extending it. From there on the subclass is the decorator's,
+so an override follows [the decorator's rule](#overrides) — decorate the
+override with `@Try` to catch it. Decorate a subclass rather than the result
+itself, which `@TryCatch` refuses. Its instances are handed out behind the
+decorator's proxy, so the `#private` guarantee above no longer holds for them
+— see [Known limitations](#known-limitations-of-tryclass).
+
+An abstract class can be wrapped too. The result stays abstract, and a concrete
+subclass extends it as it would the original.
+
+### Statics
+
+The member map addresses the prototype. Statics belong to the class object
+itself, which is what `tryWrap` covers, and the two combine:
+
+```ts
+const Client = tryWrap(tryClass(ThirdPartyClient, { connect: {} }), {
+  create: {},
+});
+
+Client.try.create(host); // null on failure
+new Client(host).try.connect(); // null
+```
+
+A static factory hands back a covered instance only if it constructs through
+`this` — `new this()`. One that names the original class constructs the
+original, which nothing wraps; wrap what it returns with `tryWrap`.
+
+### What `tryClass` refuses
+
+As the class is wrapped:
+
+- **a target with no prototype** — an arrow function or a bound one. There is
+  nothing to resolve the members against.
+- **a class that is already wrapped** — decorated with `@TryCatch`, handed back
+  by `tryClass`, the `tryWrap` of either, or extending any of them. Its
+  instances would be wrapped twice.
+- **a prototype declaring `try` or `getTryManager`**, and every member `tryWrap`
+  refuses, for the same reasons.
+
+As an instance is built:
+
+- **an instance its constructor gave its own `try` or `getTryManager`.** Defining
+  the library's would overwrite it with nothing said.
+- **an object the constructor hands back already wrapped** — a `tryWrap` result,
+  or a decorated instance. Its wrapper answers `try` itself, so the one defined
+  behind it could never be reached.
+- **a subclass declaring either name, or one the map cannot be resolved
+  against** — an override that is a plain value, say. It is refused the first
+  time that subclass is constructed, before the original constructor runs.
+
+### Known limitations of `tryClass`
+
+- A constructor that freezes or seals `this` leaves nothing to define `.try` on.
+  That instance is handed out behind the proxy `tryWrap` uses instead and has
+  its limitation: a direct call to a method that checks its receiver fails
+  ([#57](https://github.com/jfrazx/try/issues/57)). Through `.try`, it works.
+- A subclass declaring a class field named `try` cannot be constructed. The
+  field is defined after `super()` has already defined `.try`, and throws a
+  `TypeError`.
+- A constructor that hands back an object it built before — a cached client, a
+  singleton — still hands back the same object every time. When a second
+  `tryClass` of the same class hands it out too, that wrap hands it out behind
+  the proxy, as for a frozen instance, and the same proxy every time.
+- A member declared as a class field lives on each instance rather than on the
+  prototype, which is where the map is resolved. A mapped member is refused if
+  it is only a field, but a subclass field overriding a mapped method is not
+  seen: a direct call runs the field, and `.try` runs the method. Declare the
+  override as a method.
+- A subclass decorated with `@TryCatch` hands its instances out behind the
+  decorator's proxy, which is `this` on every call. A method reading a
+  `#private` field throws on a direct call, and through `.try` hands back the
+  fallback — as under `@TryCatch` on any class declaring one.
+- The result's type is built from the original's constructor parameters and
+  instance type, so an overloaded constructor keeps only its last overload and
+  a generic class loses its type parameters. Fix the parameters before
+  wrapping: `tryClass(Map<string, number>, { get: {} })`.
 
 ## Accessors and async
 
@@ -619,8 +753,10 @@ see [Objects you did not declare](#objects-you-did-not-declare).
 | `Catch`             | always catches; registered on the class, so also on `.try` |
 | `CatchError`        | always catches; standalone                                 |
 | `tryWrap`           | makes members of an object you did not declare catchable   |
+| `tryClass`          | does the same for every instance of a class                |
 | `TryOptions`        | `returnOnError`, `runOnError`                              |
-| `TryMembers`        | the member map `tryWrap` takes                             |
+| `TryMembers`        | the member map `tryWrap` and `tryClass` take               |
+| `TryClass`          | the class `tryClass` returns                               |
 | `TryCatchOptions`   | `runOnError`                                               |
 | `TryError`          | what `runOnError` receives                                 |
 | `TryCatchExtension` | the `.try` + `getTryManager()` shape                       |
