@@ -247,12 +247,12 @@ export class TryManager<T extends object, K extends keyof T> {
    * Whether a member of this name would be shadowed by the `.try` map itself
    * rather than reaching the catcher registered for it.
    *
-   * Exposed so {@link tryWrap} can refuse such a member while nothing has been
-   * committed. The decorators cannot do the same: refusing there would reject
-   * classes that decorate a `toString` today and, oddly, work — so for them the
-   * shadowing stays a documented quirk of
+   * Exposed so {@link tryWrap} and {@link tryClass} can refuse such a member
+   * while nothing has been committed. The decorators cannot do the same:
+   * refusing there would reject classes that decorate a `toString` today and,
+   * oddly, work — so for them the shadowing stays a documented quirk of
    * {@link https://github.com/jfrazx/try/issues/34 | issue #34}. Whoever calls
-   * `tryWrap` hands over the whole member list at once, before anything has run.
+   * either hands over the whole member list at once, before anything has run.
    *
    * @internal
    * @param property - the member name to check

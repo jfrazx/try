@@ -1,6 +1,8 @@
 import type { TryCatchOptions, TryMembers, Tryable } from '../interfaces';
+import { TryClassWrapper } from '../wrapper';
 import { TryHandler } from '../handler';
 import { TryManager } from '../manager';
+import { isFunction } from '../helpers';
 import {
   registerMembers,
   rejectReservedNames,
@@ -68,5 +70,11 @@ export function tryWrap<T extends object, M extends TryMembers<T>>(
 
   registerMembers('tryWrap', manager, target, members);
 
-  return TryHandler.wrap<T, K>(target, manager, 'raw');
+  const wrapper = TryHandler.wrap<T, K>(target, manager, 'raw');
+
+  if (isFunction(target)) {
+    TryClassWrapper.recordStandIn(wrapper as unknown as Function, target);
+  }
+
+  return wrapper;
 }

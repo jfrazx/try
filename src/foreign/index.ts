@@ -147,10 +147,11 @@ export const rejectCaught = (
 /**
  * A target declaring `try` or `getTryManager` is refused.
  *
- * Both names are claimed by rules that run before anything is forwarded to the
- * target, so a member of either name is left unreachable with nothing said. The
- * author of a decorated class chose its member names and can change one;
- * whoever was handed an SDK client did not and cannot.
+ * Both names are claimed: `tryWrap` answers them with rules that run before
+ * anything is forwarded to the target, and `tryClass` defines them on every
+ * instance it builds. Either way a member of either name is left unreachable
+ * with nothing said. The author of a decorated class chose its member names
+ * and can change one; whoever was handed an SDK client did not and cannot.
  *
  * Inherited counts, which is why this is an `in` check rather than an own-property
  * one: a member inherited from a base class is shadowed just as completely as
@@ -162,8 +163,39 @@ export const rejectReservedNames = (entry: Entry, target: object): void => {
   const claimed = handledNames.find((name) => name in target);
 
   if (claimed) {
+    throw new Error(reservedName[entry](String(claimed)));
+  }
+};
+
+/**
+ * Why each entry point refuses a reserved name, which differs: one answers the
+ * name in front of the target, the other defines it on the instance.
+ */
+const reservedName: Record<Entry, (claimed: string) => string> = {
+  tryWrap: (claimed) =>
+    `[TryError]: tryWrap resolves 'try' and 'getTryManager' before the target sees them. Property '${claimed}' is declared on the target and would be unreachable through the wrapper — reach it on the target itself, or wrap an object that does not declare it`,
+  tryClass: (claimed) =>
+    `[TryError]: tryClass defines 'try' and 'getTryManager' on every instance it builds. Property '${claimed}' is already declared by the class or its constructor and would be replaced — reach it through the original class, or wrap a class that does not declare it`,
+};
+
+/**
+ * A class with no prototype is refused.
+ *
+ * The member map is resolved against the prototype, and an arrow function or a
+ * bound one has none — so without this, the first thing to read it fails on
+ * `undefined` with a message that says nothing about why. Neither builds an
+ * instance worth wrapping either: an arrow cannot be constructed, and a bound
+ * function constructs whatever it was bound from, which is the one to wrap.
+ *
+ * Asked of the class being wrapped and of each class constructed through it,
+ * since `Reflect.construct` can name a bound function as the class to build.
+ *
+ * @throws if the class's prototype is not an object
+ */
+export const rejectWithoutPrototype = (klass: Function): void => {
+  if (Object(klass.prototype) !== klass.prototype) {
     throw new Error(
-      `[TryError]: ${entry} resolves 'try' and 'getTryManager' before the target sees them. Property '${String(claimed)}' is declared on the target and would be unreachable through the wrapper — reach it on the target itself, or wrap an object that does not declare it`,
+      `[TryError]: tryClass needs a class. '${klass.name}' has no prototype to resolve members against — wrap an object with tryWrap instead`,
     );
   }
 };

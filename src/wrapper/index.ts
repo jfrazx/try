@@ -28,6 +28,19 @@ export class TryClassWrapper<
 
   private static wrapped = new WeakSet<Function>();
 
+  /** The wrappers {@link TryClassWrapper.record} filed, which `tryClass` built. */
+  private static recorded = new WeakSet<Function>();
+
+  /**
+   * The class each decorated construction in progress is building an instance
+   * for, innermost last.
+   *
+   * Constructions nest — a constructor may build other objects before `super()`
+   * — so it is a stack, and only the innermost is the one a `tryClass` trap
+   * below it is running for.
+   */
+  private static constructing: Function[] = [];
+
   private readonly manager: TryManager<T, K>;
 
   /**
@@ -60,10 +73,16 @@ export class TryClassWrapper<
   }
 
   construct(target: T, args: any[], newTarget: Function): T {
-    return TryHandler.wrap<T, K>(
-      Reflect.construct(target, args, newTarget),
-      this.manager,
-    );
+    TryClassWrapper.constructing.push(newTarget);
+
+    try {
+      return TryHandler.wrap<T, K>(
+        Reflect.construct(target, args, newTarget),
+        this.manager,
+      );
+    } finally {
+      TryClassWrapper.constructing.pop();
+    }
   }
 
   /**
@@ -86,12 +105,22 @@ export class TryClassWrapper<
    * proxy is what a subclass extends and so what it finds when it looks for a
    * decorated base.
    *
+   * What `tryClass` handed back is refused too, in its own terms: it was never
+   * decorated, so a message saying it was decorated twice would send its
+   * reader looking for a decorator that is not there.
+   *
    * @throws if the class is already wrapped
    */
   static wrap<T extends Function, K extends keyof T>(
     klass: T,
     options: TryCatchOptions,
   ): T {
+    if (this.recorded.has(klass)) {
+      throw new Error(
+        `[TryError]: @TryCatch cannot decorate a class tryClass handed back. '${klass.name}' already equips its instances — decorate a subclass of it instead`,
+      );
+    }
+
     if (this.wrapped.has(klass)) {
       throw new Error(
         `[TryError]: @TryCatch can only be applied once to a class. '${klass.name}' is decorated more than once`,
@@ -105,6 +134,91 @@ export class TryClassWrapper<
     this.managerMap.set(wrapper, handler.manager);
 
     return wrapper;
+  }
+
+  /**
+   * Files a wrapper built some other way than by `@TryCatch`, so the two can
+   * find each other.
+   *
+   * {@link tryClass} builds its own proxy over a class nothing decorated. Filed
+   * here, a decorated subclass of it adopts the members it mapped, as it would
+   * from a decorated base, and wrapping it again is refused like a second
+   * `@TryCatch`.
+   *
+   * Only the proxy is filed, never the class behind it. Nothing was written to
+   * that class, so two wraps of it stay independent and neither refuses the
+   * other.
+   *
+   * @param wrapper - the proxy just built
+   * @param manager - the manager its instances carry
+   */
+  static record(wrapper: Function, manager: TryManager<any, any>): void {
+    this.wrapped.add(wrapper);
+    this.recorded.add(wrapper);
+    this.managerMap.set(wrapper, manager);
+  }
+
+  /**
+   * Whether a class is wrapped — decorated with `@TryCatch`, or built by
+   * {@link tryClass} — or is the proxy one of those handed out.
+   *
+   * `tryClass` asks it of everything in a class's chain, since wrapping a class
+   * that is already wrapped would equip each instance twice, with one `.try`
+   * hidden behind the other.
+   *
+   * @param klass - the class to check
+   */
+  static isWrapped(klass: Function): boolean {
+    return this.wrapped.has(klass);
+  }
+
+  /**
+   * Files a {@link tryWrap} of a wrapped class as wrapped too, under the same
+   * manager.
+   *
+   * A wrapper passes `Object.getPrototypeOf` straight to the class behind it,
+   * so a walk up a chain that runs through one steps from the wrapper to what
+   * that class extends and never meets the class itself. A decorated subclass
+   * would find no manager to adopt, and `tryClass` would take a subclass of it
+   * for one nothing wraps. Filed here, the wrapper answers both as the class it
+   * stands in front of — and `@TryCatch` on the wrapper itself is refused as it
+   * would be on that class.
+   *
+   * A class nothing wraps is left alone; its wrapper hides nothing, since the
+   * walk carries on to what that class extends.
+   *
+   * @param standIn - the wrapper `tryWrap` built
+   * @param klass - the class it stands in front of
+   */
+  static recordStandIn(standIn: Function, klass: Function): void {
+    const manager = this.managerMap.get(klass);
+
+    if (!manager) {
+      return;
+    }
+
+    if (this.recorded.has(klass)) {
+      this.recorded.add(standIn);
+    }
+
+    this.wrapped.add(standIn);
+    this.managerMap.set(standIn, manager);
+  }
+
+  /**
+   * Whether a decorated class is building an instance for this class right
+   * now, and so will equip what it builds itself.
+   *
+   * Asked by the `tryClass` trap a decorated subclass constructs through. It is
+   * the trap's own question — will anything above me equip this instance? —
+   * answered by what is actually running rather than by reading the chain, which
+   * cannot tell a decorated class the construction runs through from one it
+   * merely names as `newTarget`.
+   *
+   * @param newTarget - the class the trap is constructing for
+   */
+  static isConstructing(newTarget: Function): boolean {
+    return this.constructing[this.constructing.length - 1] === newTarget;
   }
 
   static registerDecorator<T extends Function>(
