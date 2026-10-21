@@ -15,14 +15,20 @@ import { equip } from './equip';
  */
 export class ForeignClassWrapper<T extends Function> implements ProxyHandler<T> {
   /**
-   * The manager for each class constructed through this proxy: the proxy
-   * itself, filed as it is built, and each subclass of it, filed the first time
-   * one is constructed.
+   * The manager for each prototype an instance is built on through this proxy:
+   * the class's own, filed as the proxy is built, and each subclass's, filed
+   * the first time one is constructed.
    *
-   * Weak and keyed by the class, so a subclass created per request, per tenant
-   * or per test leaves nothing behind once it is unreachable.
+   * Keyed by the prototype rather than the class, since the prototype is all a
+   * manager is resolved against. A class standing in front of another — a
+   * `tryWrap` of the result, arriving as `newTarget` — reads the same
+   * `prototype` and so finds the same manager, without anything rewriting the
+   * `new.target` its constructor sees.
+   *
+   * Weak, so a subclass created per request, per tenant or per test leaves
+   * nothing behind once it is unreachable.
    */
-  private readonly managers = new WeakMap<Function, TryManager<any, any>>();
+  private readonly managers = new WeakMap<object, TryManager<any, any>>();
 
   private constructor(
     private readonly buildManager: (prototype: object) => TryManager<any, any>,
@@ -56,8 +62,9 @@ export class ForeignClassWrapper<T extends Function> implements ProxyHandler<T> 
    * against the subclass's prototype, each mapped member is found where that
    * class declares it, which is where a direct call finds it too.
    *
-   * `new Wrapped()` passes the proxy as `newTarget`, not the class behind it,
-   * which is why the proxy is filed as it is built.
+   * `new Wrapped()` passes the proxy as `newTarget`, not the class behind it;
+   * both read the same `prototype`, which is why the class's own manager is
+   * filed as the proxy is built.
    *
    * A decorated class constructing through this proxy equips the instance
    * itself: its trap resumes once this one returns and hands the instance out
@@ -80,12 +87,12 @@ export class ForeignClassWrapper<T extends Function> implements ProxyHandler<T> 
       return undefined;
     }
 
-    return this.managers.get(newTarget) ?? this.file(newTarget);
+    return this.managers.get(newTarget.prototype) ?? this.file(newTarget);
   }
 
   /**
    * Resolves the member map against a class's prototype and files the result
-   * under that class.
+   * under that prototype.
    *
    * The class is checked for the names `.try` needs as it is resolved. The
    * proxy's check is the wrap's own; a subclass was declared after the wrap,
@@ -100,7 +107,7 @@ export class ForeignClassWrapper<T extends Function> implements ProxyHandler<T> 
 
     const manager = this.buildManager(klass.prototype);
 
-    this.managers.set(klass, manager);
+    this.managers.set(klass.prototype, manager);
 
     return manager;
   }

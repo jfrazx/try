@@ -57,10 +57,14 @@ const fronts = new WeakMap<object, WeakMap<TryManager<any, any>, object>>();
  * on — as does one handing back a proxy that declines the definition — and
  * the instance goes behind the raw-mode proxy `tryWrap` uses instead.
  * So does an instance another wrap already equipped, since its names are
- * taken; the one this wrap equipped comes back as it is. Ordinary access
- * through that proxy still reaches the real instance, but a direct call is
- * made with the proxy as `this` — so a `#private` method on such an instance
- * throws, as it does through `tryWrap`. See
+ * taken; the one this wrap equipped comes back as it is. An instance once
+ * handed out behind the proxy is handed out behind it from then on, and is
+ * not checked again: a definition that took only the first name leaves that
+ * name declared, and a second look would refuse it as the class's own.
+ *
+ * Ordinary access through that proxy still reaches the real instance, but a
+ * direct call is made with the proxy as `this` — so a `#private` method on
+ * such an instance throws, as it does through `tryWrap`. See
  * {@link https://github.com/jfrazx/try/issues/57 | issue #57}.
  *
  * @param instance - the object the constructor handed back
@@ -80,12 +84,14 @@ export const equip = <T extends object, K extends keyof T>(
     return instance as Tryable<T, K>;
   }
 
-  if (!installed) {
-    rejectWrapped(instance);
-    rejectReservedNames('tryClass', instance);
+  if (installed || fronts.has(instance)) {
+    return front(instance, manager);
   }
 
-  if (installed || !define(instance, manager)) {
+  rejectWrapped(instance);
+  rejectReservedNames('tryClass', instance);
+
+  if (!define(instance, manager)) {
     return front(instance, manager);
   }
 

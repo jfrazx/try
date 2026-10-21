@@ -316,6 +316,27 @@ describe('tryClass and a constructor handing back an object it built before', ()
     expect(new Safe()).toBe(new Safe());
     expect(new Safe().try.connect()).toBeNull();
   });
+
+  it('should hand back the same object each time when only one name took', () => {
+    const halfDeclining = new Proxy(new Client('half'), {
+      defineProperty: (target, property, descriptor) =>
+        property !== 'getTryManager' &&
+        Reflect.defineProperty(target, property, descriptor),
+    });
+
+    class Cached extends Client {
+      constructor() {
+        super('ignored');
+
+        return halfDeclining;
+      }
+    }
+
+    const Safe = tryClass(Cached, { connect: {} });
+
+    expect(new Safe()).toBe(new Safe());
+    expect(new Safe().try.connect()).toBeNull();
+  });
 });
 
 /**
@@ -940,6 +961,31 @@ describe('tryClass and a subclass decorated with @TryCatch', () => {
 
     expect(() => new Sub('h').send()).toThrow(TypeError);
     expect((new Sub('h') as any).try.send()).toBeNull();
+  });
+
+  /**
+   * Pinned rather than wanted. Built under the decorator's `new.target`, the
+   * object is taken for the one `super()` builds and left for the decorator,
+   * which wraps only what `super()` returned — tracked in issue #77.
+   */
+  it('should leave bare an object built for new.target before super()', () => {
+    const Wrapped = Base();
+    let saved: any;
+
+    @TryCatch()
+    class Sub extends Wrapped {
+      constructor(host: string) {
+        saved = Reflect.construct(Wrapped, [host], new.target);
+
+        super(host);
+      }
+    }
+
+    const sub = new Sub('h') as any;
+
+    expect(sub.try.connect()).toBeNull();
+    expect(saved).toBeInstanceOf(Sub);
+    expect(saved.try).toBeUndefined();
   });
 
   it('should leave the base wrap equipping its own instances', () => {

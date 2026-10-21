@@ -873,4 +873,25 @@ describe("tryWrap on a class's statics", () => {
 
     expect(new Wrapped()).toBeInstanceOf(WithStatic);
   });
+
+  it('should construct with the wrapper as new.target, its .try included', () => {
+    let seen: any;
+
+    class Recording {
+      static make(): Recording {
+        throw new Error('static');
+      }
+
+      constructor() {
+        seen = new.target;
+      }
+    }
+
+    const Wrapped = tryWrap(Recording, { make: {} });
+
+    void new Wrapped();
+
+    expect(seen).toBe(Wrapped);
+    expect(seen.try.make()).toBeNull();
+  });
 });

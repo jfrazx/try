@@ -199,29 +199,6 @@ class RawTryHandler<T extends object, K extends keyof T> extends TryHandler<T, K
   }
 
   /**
-   * `new` on a wrapped class constructs the class behind it, as that class.
-   *
-   * Without a trap, the wrapper itself arrives as `newTarget`. The instance is
-   * the same either way — the wrapper reads `prototype` off the class — but a
-   * class with a `construct` trap of its own, a `tryClass` result, would take
-   * the wrapper for a subclass and resolve its members again, handing these
-   * instances a different manager from the one `new` on the class itself does.
-   *
-   * A subclass of the wrapper arrives as itself and is passed on unchanged.
-   * Only reachable on a callable target; on any other there is nothing to
-   * construct.
-   */
-  construct(target: T, args: any[], newTarget: Function): object {
-    return Reflect.construct(
-      target as unknown as Function,
-      args,
-      newTarget === (this.wrapper as unknown)
-        ? (target as unknown as Function)
-        : newTarget,
-    );
-  }
-
-  /**
    * Whether the receiver inherits from this wrapper, rather than being the
    * wrapper or something standing in front of it.
    *

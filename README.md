@@ -425,6 +425,13 @@ As an instance is built:
   decorator's proxy, which is `this` on every call. A method reading a
   `#private` field throws on a direct call, and through `.try` hands back the
   fallback — as under `@TryCatch` on any class declaring one.
+- A subclass decorated with `@TryCatch` whose constructor builds a second
+  object with its own `new.target` before `super()` —
+  `Reflect.construct(Base, args, new.target)` — leaves that object without
+  `.try`. It is taken for the instance the decorator will equip, and the
+  decorator equips only what `super()` returns
+  ([#77](https://github.com/jfrazx/try/issues/77)). The instance itself is
+  unaffected.
 - The result's type is built from the original's constructor parameters and
   instance type, so an overloaded constructor keeps only its last overload and
   a generic class loses its type parameters. Fix the parameters before
