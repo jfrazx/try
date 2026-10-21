@@ -10,10 +10,10 @@
  * runs whatever getter is there, on the very targets most likely to be hostile.
  *
  * Recorded here rather than on the handler, which has enough to do resolving
- * access, and rather than beside the classes {@link TryClassWrapper} refuses a
- * second `@TryCatch` on: that registry answers whether a *class* is decorated,
- * keyed by the class, which is a different question from whether an *object* is
- * a wrapper.
+ * access, and rather than beside the classes {@link TryClassWrapper} records:
+ * that registry answers whether a *class* is wrapped — decorated, or built by
+ * `tryClass` — keyed by the class, which is a different question from whether
+ * an *object* is a wrapper.
  *
  * The set is weak, so a wrapper leaves nothing behind once it is unreachable.
  */

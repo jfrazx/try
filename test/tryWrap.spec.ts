@@ -851,3 +851,47 @@ describe('a direct call through a wrapped builtin', () => {
     expect(sdk.try.send()).toBe('key');
   });
 });
+
+/**
+ * The class form of a wrap is `tryClass`. `tryWrap` on a class keeps doing what
+ * it did before that existed: it wraps the class object, whose own members are
+ * its statics.
+ */
+describe("tryWrap on a class's statics", () => {
+  class WithStatic {
+    static make(): WithStatic {
+      throw new Error('static');
+    }
+  }
+
+  it('should catch a static through .try', () => {
+    expect(tryWrap(WithStatic, { make: {} }).try.make()).toBeNull();
+  });
+
+  it('should leave the result constructible as the original', () => {
+    const Wrapped = tryWrap(WithStatic, { make: {} });
+
+    expect(new Wrapped()).toBeInstanceOf(WithStatic);
+  });
+
+  it('should construct with the wrapper as new.target, its .try included', () => {
+    let seen: any;
+
+    class Recording {
+      static make(): Recording {
+        throw new Error('static');
+      }
+
+      constructor() {
+        seen = new.target;
+      }
+    }
+
+    const Wrapped = tryWrap(Recording, { make: {} });
+
+    void new Wrapped();
+
+    expect(seen).toBe(Wrapped);
+    expect(seen.try.make()).toBeNull();
+  });
+});

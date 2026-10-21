@@ -40,6 +40,52 @@ export type Tryable<T extends object, K extends keyof T = keyof T> = T &
   TryCatchExtension<T, K>;
 
 /**
+ * The class {@link tryClass} hands back: newable with the original's
+ * constructor parameters, building instances that carry `.try`, with the
+ * original's statics alongside.
+ *
+ * The construct signature is declared here rather than inherited, which is
+ * what types an instance as {@link Tryable}. `Pick` keeps the statics and
+ * leaves the original construct signature behind, so `new` resolves only to
+ * this one. An abstract class stays abstract: it cannot be constructed, and a
+ * subclass extends it as it would the original.
+ *
+ * Declared from `ConstructorParameters` and `InstanceType`, it carries what
+ * those carry: an overloaded constructor keeps only its last overload, and a
+ * generic class's type parameters are lost. Fix them before wrapping, with an
+ * instantiation expression — `tryClass(Map<string, number>, …)`.
+ *
+ * @template C - the class being wrapped
+ * @template K - the members its instances can catch through `.try`
+ *
+ * @example
+ * ```ts
+ * import { tryClass, type TryClass } from '@status/try';
+ *
+ * class Client {
+ *   connect(): void {
+ *     throw new Error('refused');
+ *   }
+ * }
+ *
+ * const Safe: TryClass<typeof Client, 'connect'> = tryClass(Client, {
+ *   connect: {},
+ * });
+ *
+ * new Safe().try.connect(); // null
+ * ```
+ */
+export type TryClass<
+  C extends abstract new (...args: any[]) => object,
+  K extends keyof InstanceType<C>,
+> = (C extends new (...args: any[]) => object
+  ? new (...args: ConstructorParameters<C>) => Tryable<InstanceType<C>, K>
+  : abstract new (
+      ...args: ConstructorParameters<C>
+    ) => Tryable<InstanceType<C>, K>) &
+  Pick<C, keyof C>;
+
+/**
  * The members {@link TryCatch} adds to a decorated class at runtime.
  *
  * A decorator cannot change the type of the class it decorates, so these are
