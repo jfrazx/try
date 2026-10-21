@@ -67,6 +67,12 @@ const fronts = new WeakMap<object, WeakMap<TryManager<any, any>, object>>();
  * such an instance throws, as it does through `tryWrap`. See
  * {@link https://github.com/jfrazx/try/issues/57 | issue #57}.
  *
+ * A subclass constructing such an instance gets the proxy back from `super()`
+ * as its `this`, so its own `#private` fields land on the proxy, while `.try`
+ * runs against the instance behind it. A member reading one hands back the
+ * fallback through `.try`. See
+ * {@link https://github.com/jfrazx/try/issues/78 | issue #78}.
+ *
  * @param instance - the object the constructor handed back
  * @param manager - the manager whose catchers the map exposes
  * @returns the same instance, now carrying both names, or a proxy in front of

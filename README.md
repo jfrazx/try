@@ -408,7 +408,11 @@ As an instance is built:
 - A constructor that freezes or seals `this` leaves nothing to define `.try` on.
   That instance is handed out behind the proxy `tryWrap` uses instead and has
   its limitation: a direct call to a method that checks its receiver fails
-  ([#57](https://github.com/jfrazx/try/issues/57)). Through `.try`, it works.
+  ([#57](https://github.com/jfrazx/try/issues/57)). Through `.try`, it works —
+  except for a subclass's own `#private` field. `super()` hands the subclass
+  that proxy as `this`, so the field lands on the proxy, while `.try` runs
+  against the instance behind it and hands back the fallback
+  ([#78](https://github.com/jfrazx/try/issues/78)).
 - A subclass declaring a class field named `try` cannot be constructed. The
   field is defined after `super()` has already defined `.try`, and throws a
   `TypeError`.

@@ -241,6 +241,35 @@ describe('tryClass and an instance its constructor locks', () => {
     expect(locked.host).toBe('h');
   });
 
+  /**
+   * Pinned rather than wanted. `super()` hands the subclass the proxy as
+   * `this`, so its `#private` field lands there, and `.try` runs against the
+   * instance behind it — tracked in issue #78.
+   */
+  it("should hand back the fallback for a subclass's own #private field", () => {
+    let caught: unknown;
+
+    class Sub extends tryClass(Frozen, {
+      connect: {
+        runOnError: ({ error }) => {
+          caught = error;
+        },
+      },
+    }) {
+      readonly #state = 'open';
+
+      override connect(): string {
+        return this.#state;
+      }
+    }
+
+    const sub = new Sub('h');
+
+    expect(sub.connect()).toBe('open');
+    expect(sub.try.connect()).toBeNull();
+    expect(caught).toBeInstanceOf(TypeError);
+  });
+
   it('should satisfy instanceof against the original', () => {
     expect(new (tryClass(Frozen, { connect: {} }))('h')).toBeInstanceOf(Frozen);
   });
