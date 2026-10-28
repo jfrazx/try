@@ -91,12 +91,14 @@ export function tryFn<F extends (...args: any[]) => any>(
     get: (target, property) =>
       property === Handle.Try ? attempt : Reflect.get(target, property),
 
-    // `new` on the wrapper hands the wrapper on as `new.target`, as `tryWrap`
-    // does, and the instance's prototype is read through it, which `get`
-    // forwards. A bound function is the exception: it has no prototype to
-    // read, and builds what it was bound from only when it is `new.target`
-    // itself, so with the wrapper there it built a plain object. It alone is
-    // handed on as itself. A subclass arrives as itself and is left alone.
+    /**
+     * `new` on the wrapper hands the wrapper on as `new.target`, as `tryWrap`
+     * does, and the instance's prototype is read through it, which `get`
+     * forwards. A bound function is the exception: it has no prototype to
+     * read, and builds what it was bound from only when it is `new.target`
+     * itself, so with the wrapper there it built a plain object. It alone is
+     * handed on as itself. A subclass arrives as itself and is left alone.
+     */
     construct: (target, args, newTarget) =>
       Reflect.construct(
         target,
@@ -106,13 +108,20 @@ export function tryFn<F extends (...args: any[]) => any>(
           : newTarget,
       ),
 
-    // Without this, `parse.try = x` lands on the function, which `tryFn`
-    // promises never to touch, while `get` goes on answering `try` itself, so
-    // the write visibly does nothing. Only a write made on the wrapper itself
-    // is refused. Any other is forwarded with its own receiver: an object
-    // inheriting from the wrapper keeps its `try`, as it would anywhere, and a
-    // write through a proxy standing in front still has to define the name on
-    // that proxy, which reaches `defineProperty` below.
+    /**
+     * A write of `try` on the wrapper is refused, and every other write passes
+     * through.
+     *
+     * Without this, `parse.try = x` lands on the function, which `tryFn`
+     * promises never to touch, while `get` goes on answering `try` itself, so
+     * the write visibly does nothing. Only a write made on the wrapper itself
+     * is refused. Any other is forwarded with its own receiver: an object
+     * inheriting from the wrapper keeps its `try`, as it would anywhere, and a
+     * write through a proxy standing in front still has to define the name on
+     * that proxy, which reaches `defineProperty` below.
+     *
+     * @throws if `try` is written on the wrapper itself
+     */
     set: (target, property, value, receiver) => {
       if (property === Handle.Try && receiver === wrapper) {
         throw refusal();
@@ -126,8 +135,16 @@ export function tryFn<F extends (...args: any[]) => any>(
       );
     },
 
-    // `Object.defineProperty(parse, 'try', …)` never reaches `set`, and a
-    // definition made on the wrapper always lands on the function.
+    /**
+     * A definition of `try` is refused, and every other definition passes
+     * through.
+     *
+     * `Object.defineProperty(parse, 'try', …)` never reaches `set`, and a
+     * definition made on the wrapper always lands on the function, so without
+     * this the name `set` refuses could still be planted by the other route.
+     *
+     * @throws if the property is `try`
+     */
     defineProperty: (target, property, descriptor) => {
       if (property === Handle.Try) {
         throw refusal();
