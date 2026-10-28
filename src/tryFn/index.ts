@@ -1,6 +1,9 @@
 import type { TryFn, TryOptions } from '../interfaces';
+import { rejectReservedNames, rejectWrapper } from '../foreign';
 import { Handle } from '../handler/rules/interfaces';
 import { CatchRunner } from '../catcher';
+import { isFunction } from '../helpers';
+import { markWrapper } from '../handler';
 
 /**
  * Makes a bare function catchable through `.try`, without a decorator.
@@ -36,6 +39,9 @@ import { CatchRunner } from '../catcher';
  * @param fn - the function to make catchable
  * @param options - what `.try` hands back, and runs, when the function throws
  * @returns the function behind a proxy carrying `.try`
+ * @throws if `fn` is not a function, if it or anything it inherits from is a
+ * `tryFn` or `tryWrap` result, or if it declares `try`. Writing or defining
+ * `try` through the wrapper throws too; any other write reaches the function.
  *
  * @example
  * ```ts
@@ -52,6 +58,10 @@ export function tryFn<F extends (...args: any[]) => any>(
   fn: F,
   options?: TryOptions,
 ): TryFn<F> {
+  rejectNonFunction(fn);
+  rejectWrapper('tryFn', fn);
+  rejectReservedNames('tryFn', fn, [Handle.Try]);
+
   // Read once, here. An empty name would log `${property} failed` as " failed",
   // and 'anonymous' is what `new Function().name` already reports.
   const catcher = CatchRunner.for<any, any>(
@@ -89,7 +99,67 @@ export function tryFn<F extends (...args: any[]) => any>(
           ? target
           : newTarget,
       ),
+
+    // Without this, `parse.try = x` lands on the function, which `tryFn`
+    // promises never to touch, while `get` goes on answering `try` itself, so
+    // the write visibly does nothing. Only a write made on the wrapper itself
+    // is refused. Any other is forwarded with its own receiver: an object
+    // inheriting from the wrapper keeps its `try`, as it would anywhere, and a
+    // write through a proxy standing in front still has to define the name on
+    // that proxy, which reaches `defineProperty` below.
+    set: (target, property, value, receiver) => {
+      if (property === Handle.Try && receiver === wrapper) {
+        throw refusal();
+      }
+
+      return Reflect.set(
+        target,
+        property,
+        value,
+        receiver === wrapper ? target : receiver,
+      );
+    },
+
+    // `Object.defineProperty(parse, 'try', …)` never reaches `set`, and a
+    // definition made on the wrapper always lands on the function.
+    defineProperty: (target, property, descriptor) => {
+      if (property === Handle.Try) {
+        throw refusal();
+      }
+
+      return Reflect.defineProperty(target, property, descriptor);
+    },
   }) as TryFn<F>;
+
+  markWrapper(wrapper);
 
   return wrapper;
 }
+
+/**
+ * Anything but a function is refused before anything is built.
+ *
+ * Typed callers cannot get here, but JavaScript and `any` can, and without
+ * this the first to notice is the catcher factory, which refuses an object in
+ * the decorators' terms — a member named `'anonymous'` that is not a method —
+ * and `null` with a `TypeError` reading its name. It also comes first because
+ * the wrapper check walks the chain of an object.
+ *
+ * @throws if `fn` is not callable
+ */
+const rejectNonFunction = (fn: unknown): void => {
+  if (!isFunction(fn)) {
+    throw new Error(
+      `[TryError]: tryFn needs a function. Received ${typeof fn} — wrap an object's members with tryWrap instead`,
+    );
+  }
+};
+
+/**
+ * The refusal both write traps raise for `try`, which the wrapper answers
+ * itself.
+ */
+const refusal = (): Error =>
+  new Error(
+    `[TryError]: tryFn answers 'try' itself and cannot pass a write of it through. Property 'try' would be set on the function where nothing could read it back — assign it on the function directly if that is what you mean`,
+  );

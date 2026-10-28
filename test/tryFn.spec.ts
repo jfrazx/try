@@ -1,4 +1,9 @@
-import { tryFn } from '../src';
+import { tryFn, tryWrap } from '../src';
+
+const NOT_A_FUNCTION = `[TryError]: tryFn needs a function. Received object — wrap an object's members with tryWrap instead`;
+const WRAPPED = `[TryError]: tryFn cannot wrap a function that is already wrapped, or one that inherits from a wrapper. Its .try would hide the one the wrapper already answers — wrap the original function once`;
+const RESERVED = `[TryError]: tryFn answers 'try' before the function sees it. Property 'try' is declared on the function and would be unreachable through the wrapper — reach it on the function itself, or wrap a function that does not declare it`;
+const WRITE = `[TryError]: tryFn answers 'try' itself and cannot pass a write of it through. Property 'try' would be set on the function where nothing could read it back — assign it on the function directly if that is what you mean`;
 
 function thrower(): void {
   throw new Error('x');
@@ -225,6 +230,102 @@ describe('tryFn', () => {
       const obj = { self: tryFn(self) };
 
       expect(obj.self()).toBe(obj);
+    });
+  });
+
+  describe('what tryFn refuses', () => {
+    it('should refuse something that is not a function', () => {
+      expect(() => tryFn({} as any)).toThrow(NOT_A_FUNCTION);
+    });
+
+    it('should refuse a tryWrap result', () => {
+      expect(() => tryFn(tryWrap(thrower, {}))).toThrow(WRAPPED);
+    });
+
+    it('should refuse its own result', () => {
+      expect(() => tryFn(tryFn(thrower))).toThrow(WRAPPED);
+    });
+
+    it('should be refused by tryWrap', () => {
+      expect(() => tryWrap(tryFn(thrower), {})).toThrow(
+        `[TryError]: tryWrap cannot wrap an object that is already wrapped, or one that inherits from a wrapper.`,
+      );
+    });
+
+    it('should refuse a function that declares try', () => {
+      expect(() => tryFn(Object.assign(function f() {}, { try: 1 }))).toThrow(
+        RESERVED,
+      );
+    });
+  });
+
+  /**
+   * Each write gets a function of its own. Before the traps existed, a write
+   * of `try` landed on the function behind the wrapper, and a shared one would
+   * carry it into every later test.
+   */
+  describe('writes through the wrapper', () => {
+    const fresh = () => {
+      const fn = function target(): void {};
+
+      return { fn, wrapped: tryFn(fn) };
+    };
+
+    it('should refuse assigning try', () => {
+      const { wrapped } = fresh();
+
+      expect(() => {
+        (wrapped as any).try = 1;
+      }).toThrow(WRITE);
+    });
+
+    it('should refuse defining try', () => {
+      const { wrapped } = fresh();
+
+      expect(() => Object.defineProperty(wrapped, 'try', { value: 1 })).toThrow(
+        WRITE,
+      );
+    });
+
+    /**
+     * `set` refuses by identity, so this write is forwarded with the outer
+     * proxy as its receiver. It still has to land somewhere, and defining it
+     * on the outer proxy reaches the wrapper's `defineProperty`.
+     */
+    it('should refuse assigning try through a proxy standing in front', () => {
+      const { fn, wrapped } = fresh();
+      const front = new Proxy(wrapped, {});
+
+      expect(() => {
+        (front as any).try = 1;
+      }).toThrow(WRITE);
+      expect('try' in fn).toBe(false);
+    });
+
+    it('should forward any other write to the function', () => {
+      const { fn, wrapped } = fresh();
+
+      (wrapped as any).label = 'x';
+
+      expect((fn as any).label).toBe('x');
+    });
+
+    it('should forward any other definition to the function', () => {
+      const { fn, wrapped } = fresh();
+
+      Object.defineProperty(wrapped, 'label', { value: 'x' });
+
+      expect((fn as any).label).toBe('x');
+    });
+
+    it('should let an inheriting object assign its own try', () => {
+      const { fn, wrapped } = fresh();
+      const child = Object.create(wrapped);
+
+      child.try = 1;
+
+      expect(child.try).toBe(1);
+      expect('try' in fn).toBe(false);
     });
   });
 });
