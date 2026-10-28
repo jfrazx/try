@@ -58,6 +58,12 @@ export function tryFn<F extends (...args: any[]) => any>(
   fn: F,
   options?: TryOptions,
 ): TryFn<F> {
+  // `.try` relies on strict mode: called detached, it must see `undefined` and
+  // hand that on. The CommonJS build carries no `"use strict"`, and there it saw
+  // `globalThis` instead. Declared here because `.try`'s rest parameter forbids
+  // the directive in its own body, and everything built below inherits it.
+  'use strict';
+
   rejectNonFunction(fn);
   rejectWrapper('tryFn', fn);
   rejectReservedNames('tryFn', fn, [Handle.Try]);
