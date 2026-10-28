@@ -5,8 +5,9 @@ Automatically catch errors on object methods and accessors.
 `try`/`catch` blocks tend to pile up around the calls most likely to fail, until
 the error handling outweighs the work. This library moves that handling onto the
 declaration with a decorator, and lets the call site stay a call site. For an
-object you did not declare, `tryWrap` does the same without one, and for a class
-you did not write, `tryClass` does it for every instance.
+object you did not declare, `tryWrap` does the same without one. For a class you
+did not write, `tryClass` does it for every instance, and for a bare function,
+`tryFn` does it for the function itself.
 
 ## Install
 
@@ -441,6 +442,113 @@ As an instance is built:
   a generic class loses its type parameters. Fix the parameters before
   wrapping: `tryClass(Map<string, number>, { get: {} })`.
 
+## Bare functions
+
+`tryWrap` needs a member to name, and a function standing on its own has none —
+`JSON.parse` passed around by itself, a callback, a memoized loader. `tryFn`
+wraps the function itself, and its `.try` is that same function with catching:
+
+```ts
+import { tryFn } from '@status/try';
+
+const parse = tryFn(JSON.parse, { returnOnError: {} });
+
+parse('nope'); // throws SyntaxError
+parse.try('nope'); // {}
+parse.try('{"a":"b"}'); // { a: 'b' }
+```
+
+The second argument is a single `TryOptions` — `returnOnError` and `runOnError`
+— since there are no members to give options of their own. The semantics are
+`.try`'s as everywhere else: a direct call keeps throwing, and the call through
+`.try` is what catches.
+
+The function is never written to. What comes back is a proxy standing in front
+of it, which answers `.try` itself and reads everything else through, so `name`,
+`length`, `prototype`, `new` and the function's own properties all survive the
+wrap:
+
+```ts
+const load = tryFn(memoize(readConfig));
+
+load.try('./config.json'); // null if readConfig throws
+load.cache.clear(); // memoize's own cache, reached through the wrapper
+```
+
+The result is typed `TryFn<typeof fn>`: the function, with a `.try` of the same
+type. Nothing is rebuilt from its parameters, so an overloaded function such as
+`JSON.parse` keeps every overload through `.try`.
+
+`runOnError` receives a `TryError` whose `property` is the function's `name`:
+`'anonymous'` for a function without one, such as an arrow passed inline, and
+`'bound load'` for `load.bind(obj)`, as `bind` names it.
+
+### `this`
+
+A direct call is untouched, so a wrapper installed as a method still runs
+against the object it is called on. `.try` passes on whatever `this` its call
+provides, except the wrapper itself, which becomes `undefined` — so
+`parse.try(x)` runs exactly as `parse(x)` would:
+
+```ts
+function whoAmI(this: unknown) {
+  return this;
+}
+
+const wrapped = tryFn(whoAmI);
+const obj = { whoAmI: wrapped };
+
+wrapped.try(); // undefined, as for whoAmI()
+wrapped.try.call(obj); // obj
+obj.whoAmI(); // obj — a direct call keeps its receiver
+```
+
+A detached `.try` — `const { try: attempt } = wrapped` — runs with `this`
+`undefined` too.
+
+What nothing can rescue is `obj.whoAmI.try()`. Reading `.whoAmI` has already
+lost `obj` by the time `.try` is looked up, so the function runs with `this`
+`undefined`. Pass the receiver explicitly, or bind it before wrapping:
+
+```ts
+obj.whoAmI.try.call(obj); // obj
+tryFn(whoAmI.bind(obj)).try(); // obj
+```
+
+Or leave the function plain on the object and wrap the object instead:
+`tryWrap(obj, { whoAmI: {} }).try.whoAmI()` runs against `obj`, as any member
+does.
+
+### What `tryFn` refuses
+
+As the function is wrapped:
+
+- **something that is not a function.** From JavaScript, or through `any`, it
+  fails here rather than on the first call. An object's members are `tryWrap`'s
+  to wrap.
+- **a wrapper, in either direction** — a `tryFn` or `tryWrap` result, or anything
+  inheriting from one — and `tryWrap` refuses a `tryFn` result in turn. Each
+  answers `.try` itself, so the outer one would hide the inner. Wrap the
+  original function once.
+- **a function that declares `try`**, its own or inherited. The wrapper answers
+  `try` before the function sees it, so that member would be unreachable.
+
+Through the wrapper:
+
+- **writing or defining `try`.** It would land on the function, where the
+  wrapper never reads it. Every other write reaches the function.
+
+### Known limitations of `tryFn`
+
+- A class is not a function to call, and the types refuse one. From JavaScript,
+  `.try()` on a class catches its "cannot be invoked without 'new'" error, which
+  a direct call throws first. Wrap a class with `tryClass`.
+- `String(wrapped)` reads `function () { [native code] }` rather than the
+  function's source. That is how a callable proxy stringifies; hold the original
+  to read its source.
+- `'try' in wrapped` reads `false`, though `wrapped.try` answers
+  ([#82](https://github.com/jfrazx/try/issues/82)).
+
 ## Accessors and async
 
 Everything above works on getters and on anything returning a promise. A
@@ -765,9 +873,11 @@ see [Objects you did not declare](#objects-you-did-not-declare).
 | `CatchError`        | always catches; standalone                                 |
 | `tryWrap`           | makes members of an object you did not declare catchable   |
 | `tryClass`          | does the same for every instance of a class                |
+| `tryFn`             | makes a bare function catchable through `.try`             |
 | `TryOptions`        | `returnOnError`, `runOnError`                              |
 | `TryMembers`        | the member map `tryWrap` and `tryClass` take               |
 | `TryClass`          | the class `tryClass` returns                               |
+| `TryFn`             | the function `tryFn` returns                               |
 | `TryCatchOptions`   | `runOnError`                                               |
 | `TryError`          | what `runOnError` receives                                 |
 | `TryCatchExtension` | the `.try` + `getTryManager()` shape                       |
