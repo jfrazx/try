@@ -3,6 +3,7 @@ import { rejectReservedNames, rejectWrapper } from '../foreign';
 import { Handle } from '../handler/rules/interfaces';
 import { CatchRunner } from '../catcher';
 import { isFunction } from '../helpers';
+import { TryClassWrapper } from '../wrapper';
 import { markWrapper } from '../handler';
 
 /**
@@ -41,7 +42,8 @@ import { markWrapper } from '../handler';
  * @returns the function behind a proxy carrying `.try`
  * @throws if `fn` is not a function, if it or anything it inherits from is a
  * `tryFn` or `tryWrap` result, or if it declares `try`. Writing or defining
- * `try` through the wrapper throws too; any other write reaches the function.
+ * `try` through the wrapper throws too, as does reading it once the function
+ * has fixed its own; any other write reaches the function.
  *
  * @example
  * ```ts
@@ -58,12 +60,6 @@ export function tryFn<F extends (...args: any[]) => any>(
   fn: F,
   options?: TryOptions,
 ): TryFn<F> {
-  // `.try` relies on strict mode: called detached, it must see `undefined` and
-  // hand that on. The CommonJS build carries no `"use strict"`, and there it saw
-  // `globalThis` instead. Declared here because `.try`'s rest parameter forbids
-  // the directive in its own body, and everything built below inherits it.
-  'use strict';
-
   rejectNonFunction(fn);
   rejectWrapper('tryFn', fn);
   rejectReservedNames('tryFn', fn, [Handle.Try]);
@@ -76,20 +72,39 @@ export function tryFn<F extends (...args: any[]) => any>(
     { tryOptions: options },
   );
 
-  // A plain function, so `this` is whatever the call provides. The wrapper is
-  // what `parse.try(x)` provides, and nothing wants the function run against
-  // its own proxy. It carries none of the original's `name` or `length`: the
-  // wrapper is what stands in for the function, and it has both.
-  const attempt = function (this: unknown, ...args: any[]): unknown {
-    return catcher.catchError(this === wrapper ? undefined : this, ...args);
+  // A method, so `this` is whatever the call provides and `new` is refused: a
+  // plain function would construct, running the original as a plain call
+  // against an object it never built. The wrapper is what `parse.try(x)`
+  // provides, and nothing wants the function run against its own proxy. It
+  // carries none of the original's `name` or `length`: the wrapper is what
+  // stands in for the function, and it has both.
+  const { attempt } = {
+    attempt(this: unknown, ...args: any[]): unknown {
+      return catcher.catchError(this === wrapper ? undefined : this, ...args);
+    },
   };
 
   // There is no `apply` trap. A callable proxy without one calls the function
   // with the caller's `this` and arguments, which is all forwarding a direct
   // call means, so `obj.parse(x)` runs against `obj` as it did unwrapped.
   const wrapper = new Proxy(fn, {
-    get: (target, property) =>
-      property === Handle.Try ? attempt : Reflect.get(target, property),
+    /**
+     * `try` is answered here, and every other read passes through with its
+     * receiver, as `set` passes writes: the wrapper itself reads as the
+     * function, and an object inheriting from it reads as itself.
+     *
+     * @throws if the function has since fixed a `try` of its own, which a
+     * proxy may not answer over
+     */
+    get: (target, property, receiver) => {
+      if (property === Handle.Try) {
+        rejectPinned(target);
+
+        return attempt;
+      }
+
+      return Reflect.get(target, property, receiver === wrapper ? target : receiver);
+    },
 
     /**
      * `new` on the wrapper hands the wrapper on as `new.target`, as `tryWrap`
@@ -152,9 +167,31 @@ export function tryFn<F extends (...args: any[]) => any>(
 
       return Reflect.defineProperty(target, property, descriptor);
     },
+
+    /**
+     * A delete of `try` is refused, and every other delete passes through.
+     *
+     * Without this, `delete parse.try` reaches the function and answers
+     * `true`, while `get` goes on answering `try` itself — the same silent
+     * no-op `set` refuses.
+     *
+     * @throws if the property is `try`
+     */
+    deleteProperty: (target, property) => {
+      if (property === Handle.Try) {
+        throw new Error(
+          `[TryError]: tryFn answers 'try' itself and cannot pass a delete of it through. Property 'try' would go on being answered by the wrapper — delete it on the function directly if that is what you mean`,
+        );
+      }
+
+      return Reflect.deleteProperty(target, property);
+    },
   }) as TryFn<F>;
 
   markWrapper(wrapper);
+  // A wrapper passes `Object.getPrototypeOf` to the function, so a walk up a
+  // chain through it would step past a wrapped class standing behind it.
+  TryClassWrapper.recordStandIn(wrapper, fn);
 
   return wrapper;
 }
@@ -174,6 +211,31 @@ const rejectNonFunction = (fn: unknown): void => {
   if (!isFunction(fn)) {
     throw new Error(
       `[TryError]: tryFn needs a function. Received ${typeof fn} — wrap an object's members with tryWrap instead`,
+    );
+  }
+};
+
+/**
+ * A `try` the function fixed after it was wrapped leaves `.try` unanswerable.
+ *
+ * `tryFn` refuses a function declaring `try`, but `fn.try = x` on the function
+ * itself is left alone, and the wrapper goes on answering over it. Once that
+ * property is non-configurable and read-only — `Object.freeze(fn)`
+ * afterwards, or a bare `Object.defineProperty` — a proxy must report it as it
+ * is, and answering `.try` throws the engine's invariant `TypeError` on every
+ * read. Anything short of both leaves the wrapper free to answer.
+ *
+ * @throws if the function's own `try` is non-configurable and read-only
+ */
+const rejectPinned = (target: object): void => {
+  const own = Reflect.getOwnPropertyDescriptor(target, Handle.Try);
+  const pinned =
+    own?.configurable === false &&
+    ('get' in own ? own.get === undefined : !own.writable);
+
+  if (pinned) {
+    throw new Error(
+      `[TryError]: tryFn cannot answer 'try' once the function fixes its own. Property 'try' was made non-configurable and read-only on the function after it was wrapped, and the wrapper must then report it as it is — reach it on the function itself`,
     );
   }
 };

@@ -1,9 +1,11 @@
-import { tryFn, tryWrap } from '../src';
+import { tryFn, tryWrap, tryClass, TryCatch, Try } from '../src';
 
 const NOT_A_FUNCTION = `[TryError]: tryFn needs a function. Received object — wrap an object's members with tryWrap instead`;
 const WRAPPED = `[TryError]: tryFn cannot wrap a function that is already wrapped, or one that inherits from a wrapper. Its .try would hide the one the wrapper already answers — wrap the original function once`;
 const RESERVED = `[TryError]: tryFn answers 'try' before the function sees it. Property 'try' is declared on the function and would be unreachable through the wrapper — reach it on the function itself, or wrap a function that does not declare it`;
 const WRITE = `[TryError]: tryFn answers 'try' itself and cannot pass a write of it through. Property 'try' would be set on the function where nothing could read it back — assign it on the function directly if that is what you mean`;
+const DELETE = `[TryError]: tryFn answers 'try' itself and cannot pass a delete of it through. Property 'try' would go on being answered by the wrapper — delete it on the function directly if that is what you mean`;
+const PINNED = `[TryError]: tryFn cannot answer 'try' once the function fixes its own. Property 'try' was made non-configurable and read-only on the function after it was wrapped, and the wrapper must then report it as it is — reach it on the function itself`;
 
 function thrower(): void {
   throw new Error('x');
@@ -204,6 +206,19 @@ describe('tryFn', () => {
       expect(new Wrapped().target).toBe(Wrapped);
     });
 
+    it('should read an accessor against what inherits from the wrapper', () => {
+      const fn = Object.defineProperty(function g(): void {}, 'who', {
+        get(this: unknown) {
+          return this;
+        },
+      });
+      const wrapped = tryFn(fn);
+      const child = Object.create(wrapped);
+
+      expect(child.who).toBe(child);
+      expect((wrapped as any).who).toBe(fn);
+    });
+
     it('should read as native code when stringified', () => {
       expect(String(tryFn(thrower))).toContain('[native code]');
     });
@@ -230,6 +245,36 @@ describe('tryFn', () => {
       const obj = { self: tryFn(self) };
 
       expect(obj.self()).toBe(obj);
+    });
+  });
+
+  /**
+   * `.try` applies the function rather than asking it to apply itself, which
+   * looks `apply` up on the function — its own, or nothing at all.
+   */
+  describe('calling the function', () => {
+    it('should run a function carrying its own apply', () => {
+      const ok = Object.assign(() => 42, { apply: () => 'hijack' });
+
+      expect(tryFn(ok).try()).toBe(42);
+    });
+
+    it('should run a function with no prototype', () => {
+      const runOnError = jest.fn();
+      const ok = Object.setPrototypeOf(function ok() {
+        return 42;
+      }, null);
+
+      expect(tryFn(ok, { runOnError }).try()).toBe(42);
+      expect(runOnError).not.toHaveBeenCalled();
+    });
+
+    it('should refuse new on .try', () => {
+      function Point(this: { x: number }, x: number): void {
+        this.x = x;
+      }
+
+      expect(() => new (tryFn(Point).try as any)(1)).toThrow(TypeError);
     });
   });
 
@@ -318,6 +363,46 @@ describe('tryFn', () => {
       expect((fn as any).label).toBe('x');
     });
 
+    it('should refuse deleting try', () => {
+      const { wrapped } = fresh();
+
+      expect(() => delete (wrapped as any).try).toThrow(DELETE);
+    });
+
+    it('should forward any other delete to the function', () => {
+      const { fn, wrapped } = fresh();
+
+      (fn as any).label = 'x';
+      delete (wrapped as any).label;
+
+      expect('label' in fn).toBe(false);
+    });
+
+    it('should explain a try fixed on the function after wrapping', () => {
+      const { fn, wrapped } = fresh();
+
+      (fn as any).try = 1;
+      Object.freeze(fn);
+
+      expect(() => wrapped.try).toThrow(PINNED);
+    });
+
+    it('should go on answering try over a non-configurable one still writable', () => {
+      const { fn, wrapped } = fresh();
+
+      Object.defineProperty(fn, 'try', { value: 1, writable: true });
+
+      expect(typeof wrapped.try).toBe('function');
+    });
+
+    it('should go on answering try over one the function can still change', () => {
+      const { fn, wrapped } = fresh();
+
+      (fn as any).try = 1;
+
+      expect(typeof wrapped.try).toBe('function');
+    });
+
     it('should let an inheriting object assign its own try', () => {
       const { fn, wrapped } = fresh();
       const child = Object.create(wrapped);
@@ -327,5 +412,38 @@ describe('tryFn', () => {
       expect(child.try).toBe(1);
       expect('try' in fn).toBe(false);
     });
+  });
+});
+
+/**
+ * A `tryFn` result passes `Object.getPrototypeOf` straight to what it stands
+ * in front of, as `tryWrap`'s does, so it is filed as that class too.
+ */
+describe('tryFn in front of a wrapped class', () => {
+  interface Decorated {
+    m(): void;
+  }
+
+  @TryCatch<Decorated>()
+  class Decorated {
+    @Try()
+    m(): void {
+      throw new Error('m');
+    }
+  }
+
+  const front = () => tryFn(Decorated as any) as unknown as typeof Decorated;
+
+  it('should be refused by tryClass, as the class is', () => {
+    expect(() => tryClass(front(), { m: {} })).toThrow(
+      `[TryError]: tryClass cannot wrap a class that is already wrapped`,
+    );
+  });
+
+  it('should hand a decorated subclass the members of the class', () => {
+    @TryCatch()
+    class Sub extends front() {}
+
+    expect((new Sub() as any).try.m()).toBeNull();
   });
 });

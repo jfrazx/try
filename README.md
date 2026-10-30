@@ -535,8 +535,14 @@ As the function is wrapped:
 
 Through the wrapper:
 
-- **writing or defining `try`.** It would land on the function, where the
-  wrapper never reads it. Every other write reaches the function.
+- **writing, defining or deleting `try`.** It would land on the function, where
+  the wrapper never reads it. Every other write reaches the function.
+- **reading `try` once the function fixes its own.** A `try` assigned on the
+  function after wrapping is left alone, but once it is non-configurable and
+  read-only — `Object.freeze(fn)` afterwards — a proxy must report it as it is,
+  so `.try` throws rather than answer.
+- **`new` on `.try`.** It catches a call, not a construction; wrap a class with
+  `tryClass`.
 
 ### Known limitations of `tryFn`
 
