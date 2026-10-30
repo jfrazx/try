@@ -63,7 +63,7 @@ export function tryWrap<T extends object, M extends TryMembers<T>>(
 ): Tryable<T, Extract<keyof M, keyof T>> {
   type K = Extract<keyof M, keyof T>;
 
-  rejectWrapper(target);
+  rejectWrapper('tryWrap', target);
   rejectReservedNames('tryWrap', target);
 
   const manager = new TryManager<T, K>(options);
