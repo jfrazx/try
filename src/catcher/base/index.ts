@@ -15,9 +15,16 @@ export abstract class ErrorCatcher<
     readonly options: OptionsContainer,
   ) {}
 
+  /**
+   * The member is applied rather than asked to apply itself, for the reason
+   * {@link catchReturn} gives: `original.apply(...)` looks `apply` up on the
+   * member, which can carry its own or, with no `Function.prototype` in its
+   * chain, none at all — a hijacked call, or a fabricated `TypeError` reported
+   * as the member failing.
+   */
   catchError(receiver: T, ...args: any[]): T[K] {
     try {
-      const result = this.original.apply(receiver, args);
+      const result = Reflect.apply(this.original, receiver, args);
 
       return this.catchReturn(result, args);
     } catch (error: any) {

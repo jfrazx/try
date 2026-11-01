@@ -21,6 +21,12 @@ export default defineConfig({
   // is 'es', not 'esm' -- comparing against 'esm' silently names both outputs
   // .cjs and the ESM build overwrites the CJS one.
   outExtensions: ({ format }) => ({ js: format === 'es' ? '.js' : '.cjs' }),
+  // ESM is strict by definition, and so is every test, which ts-jest compiles
+  // with `"use strict"`. Rolldown's default, 'auto', emits it in CommonJS only
+  // where the source has one, and TypeScript modules have none, so the CJS
+  // bundle ran sloppy: a detached function saw `globalThis` for `this`, and a
+  // failed write passed silently. Force it, so both builds run as tested.
+  outputOptions: { strict: true },
   publint: !inDryRunPack,
   attw: inDryRunPack ? false : { profile: 'node16' },
 });

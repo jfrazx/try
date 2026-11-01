@@ -8,11 +8,11 @@ import { isCaught } from '../catcher';
 /**
  * Internal. The entry point a refusal names.
  *
- * {@link tryWrap} and {@link tryClass} refuse the same things for the same
- * reasons, and each says so in its own name — a message naming the other entry
- * point would send its reader looking for a call they never made.
+ * {@link tryWrap}, {@link tryClass} and {@link tryFn} refuse several of the
+ * same things, and each says so in its own name — a message naming another
+ * entry point would send its reader looking for a call they never made.
  */
-export type Entry = 'tryWrap' | 'tryClass';
+export type Entry = 'tryWrap' | 'tryClass' | 'tryFn';
 
 /**
  * Internal. Registers each mapped member against the object its descriptor is
@@ -85,14 +85,33 @@ export const registerMembers = (
  * that proxy, and fail because of the proxy rather than the nesting: one in
  * front of a bare `Map` fails identically.
  *
+ * {@link tryFn} refuses the same wrappers for a different reason. Its catcher
+ * runs the function with whatever `this` the call provides, so no receiver goes
+ * wrong; but the wrapper it would stand in front of answers `.try` already, and
+ * the outer `.try` would hide the inner one with nothing said. That holds in
+ * both directions, which is why `tryWrap` refuses a `tryFn` result too.
+ * `tryClass` refuses a wrapped class in its own terms, and is not an entry here.
+ *
+ * @param entry - the entry point refusing, which says why
+ * @param target - the object about to be wrapped
  * @throws if the target, or anything it inherits from, is a wrapper
  */
-export const rejectWrapper = (target: object): void => {
+export const rejectWrapper = (
+  entry: Exclude<Entry, 'tryClass'>,
+  target: object,
+): void => {
   if (upChain(target, isWrapper)) {
-    throw new Error(
-      `[TryError]: tryWrap cannot wrap an object that is already wrapped, or one that inherits from a wrapper. The outer catchers would run against the inner wrapper rather than the target, which a builtin rejects as an incompatible receiver — wrap the original target once, with every member it needs`,
-    );
+    throw new Error(alreadyWrapped[entry]);
   }
+};
+
+/**
+ * Why each entry point refuses a wrapper, which differs: one would run its
+ * catchers against the wrong receiver, the other would hide a `.try`.
+ */
+const alreadyWrapped: Record<Exclude<Entry, 'tryClass'>, string> = {
+  tryWrap: `[TryError]: tryWrap cannot wrap an object that is already wrapped, or one that inherits from a wrapper. The outer catchers would run against the inner wrapper rather than the target, which a builtin rejects as an incompatible receiver — wrap the original target once, with every member it needs`,
+  tryFn: `[TryError]: tryFn cannot wrap a function that is already wrapped, or one that inherits from a wrapper. Its .try would hide the one the wrapper already answers — wrap the original function once`,
 };
 
 /**
@@ -145,22 +164,31 @@ export const rejectCaught = (
 };
 
 /**
- * A target declaring `try` or `getTryManager` is refused.
+ * A target declaring a name its entry point claims is refused.
  *
- * Both names are claimed: `tryWrap` answers them with rules that run before
- * anything is forwarded to the target, and `tryClass` defines them on every
- * instance it builds. Either way a member of either name is left unreachable
- * with nothing said. The author of a decorated class chose its member names
- * and can change one; whoever was handed an SDK client did not and cannot.
+ * `tryWrap` answers `try` and `getTryManager` with rules that run before
+ * anything is forwarded to the target, `tryClass` defines both on every
+ * instance it builds, and `tryFn` answers `try` alone — it builds a single
+ * catcher, with no manager to hand out. Whichever it is, a member of a claimed
+ * name is left unreachable with nothing said. The author of a decorated class
+ * chose its member names and can change one; whoever was handed an SDK client
+ * did not and cannot.
  *
  * Inherited counts, which is why this is an `in` check rather than an own-property
  * one: a member inherited from a base class is shadowed just as completely as
  * one declared on the object.
  *
- * @throws if the target has either name
+ * @param entry - the entry point refusing, which says why
+ * @param target - the object about to be wrapped
+ * @param names - the names that entry point claims
+ * @throws if the target has any of those names
  */
-export const rejectReservedNames = (entry: Entry, target: object): void => {
-  const claimed = handledNames.find((name) => name in target);
+export const rejectReservedNames = (
+  entry: Entry,
+  target: object,
+  names: readonly PropertyKey[] = handledNames,
+): void => {
+  const claimed = names.find((name) => name in target);
 
   if (claimed) {
     throw new Error(reservedName[entry](String(claimed)));
@@ -168,7 +196,7 @@ export const rejectReservedNames = (entry: Entry, target: object): void => {
 };
 
 /**
- * Why each entry point refuses a reserved name, which differs: one answers the
+ * Why each entry point refuses a reserved name, which differs: two answer the
  * name in front of the target, the other defines it on the instance.
  */
 const reservedName: Record<Entry, (claimed: string) => string> = {
@@ -176,6 +204,8 @@ const reservedName: Record<Entry, (claimed: string) => string> = {
     `[TryError]: tryWrap resolves 'try' and 'getTryManager' before the target sees them. Property '${claimed}' is declared on the target and would be unreachable through the wrapper — reach it on the target itself, or wrap an object that does not declare it`,
   tryClass: (claimed) =>
     `[TryError]: tryClass defines 'try' and 'getTryManager' on every instance it builds. Property '${claimed}' is already declared by the class or its constructor and would be replaced — reach it through the original class, or wrap a class that does not declare it`,
+  tryFn: (claimed) =>
+    `[TryError]: tryFn answers 'try' before the function sees it. Property '${claimed}' is declared on the function and would be unreachable through the wrapper — reach it on the function itself, or wrap a function that does not declare it`,
 };
 
 /**

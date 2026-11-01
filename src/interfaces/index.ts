@@ -86,6 +86,31 @@ export type TryClass<
   Pick<C, keyof C>;
 
 /**
+ * The function {@link tryFn} hands back: the original, callable as before,
+ * carrying a `.try` that catches.
+ *
+ * `F` is kept whole on both sides rather than rebuilt from `Parameters` and
+ * `ReturnType`, which keep only the last overload. An overloaded function such
+ * as `JSON.parse` keeps every overload through `.try`, and whatever properties
+ * the function carries — `debounce(fn).cancel` — stay typed on the wrapper.
+ *
+ * @template F - the function being wrapped
+ *
+ * @example
+ * ```ts
+ * import { tryFn, type TryFn } from '@status/try';
+ *
+ * const parse: TryFn<typeof JSON.parse> = tryFn(JSON.parse, {
+ *   returnOnError: {},
+ * });
+ *
+ * parse('nope'); // throws SyntaxError
+ * parse.try('nope'); // {}
+ * ```
+ */
+export type TryFn<F extends (...args: any[]) => any> = F & { try: F };
+
+/**
  * The members {@link TryCatch} adds to a decorated class at runtime.
  *
  * A decorator cannot change the type of the class it decorates, so these are
