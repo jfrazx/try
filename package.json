@@ -74,7 +74,7 @@
     "publint": "^0.3.24",
     "tsdown": "^0.23.0",
     "typedoc": "^0.28.20",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.0",
     "typescript-eslint": "^8.70.0"
   },
   "bugs": {
